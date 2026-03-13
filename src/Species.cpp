@@ -25,13 +25,13 @@ double Species::calculateScore(const std::unordered_map<std::string, double>& cu
     double totalScore = 0.0;
 
     for (const auto& [parameterName, currentValue] : currentWeather) {
-        if (rules.count(parameterName) > 0) {
-            ParameterRule rule = rules[parameterName];
+        if (rules.contains(parameterName)) {
+            auto [idealValue, tolerance, weight] = rules[parameterName];
 
-            double difference = currentValue - rule.idealValue;
-            double parameterScore = std::exp(-std::pow(difference, 2) / (2 * std::pow(rule.tolerance, 2)));
+            const double difference = currentValue - idealValue;
+            const double parameterScore = std::exp(-std::pow(difference, 2) / (2 * std::pow(tolerance, 2)));
 
-            totalScore += parameterScore * rule.weight;
+            totalScore += parameterScore * weight;
         }
     }
     return totalScore;

@@ -25,15 +25,15 @@ int main() {
     std::cin >> x;
     if (x == 1) {
         Species targetFish("grivadi");
-        double rawScore = targetFish.calculateScore(todayWeather);
-        double finalPercentage = rawScore * 100.0;
+        const double rawScore = targetFish.calculateScore(todayWeather);
+        const double finalPercentage = rawScore * 100.0;
         std::cout << "Stoxos: Grivadi" << std::endl;
         std::cout << "Teliko pososto epityxias: " << finalPercentage << "%" << std::endl;
     }
     else if (x == 2) {
         Species targetFish("petalouda");
-        double rawScore = targetFish.calculateScore(todayWeather);
-        double finalPercentage = rawScore * 100.0;
+        const double rawScore = targetFish.calculateScore(todayWeather);
+        const double finalPercentage = rawScore * 100.0;
         std::cout << "Stoxos: Petalouda" << std::endl;
         std::cout << "Teliko pososto epityxias: " << finalPercentage << "%" << std::endl;
     }
@@ -42,7 +42,7 @@ int main() {
     std::cout << "--------------------------------------" << std::endl;
     std::cout << "[Live Data Debug]" << std::endl;
     std::cout << "Water temperature : " << todayWeather["Temperature"] << " Celcius" << std::endl;
-    std::cout << "Wind Speed        : " << todayWeather["windSpeed"] << " km/h" << std::endl;
+    std::cout << "Wind Speed        : " << todayWeather["WindSpeed"] << " km/h" << std::endl;
     std::cout << "Wind Direction    : " << todayWeather["WindDirection"] << " / 100 (Score)" << std::endl;
     std::cout << "======================================" << std::endl;
 

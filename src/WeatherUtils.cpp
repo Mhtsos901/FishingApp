@@ -3,8 +3,8 @@
 namespace WeatherUtils {
 
     double dynamicTemp (double minT, double maxT, double photoperiod) {
-        double nightHours = 24 - photoperiod;
-        double waterTemp = ((maxT * photoperiod) + (minT * nightHours )) / 24.0;
+        const double nightHours = 24 - photoperiod;
+        const double waterTemp = ((maxT * photoperiod) + (minT * nightHours )) / 24.0;
 
         return waterTemp;
     }
