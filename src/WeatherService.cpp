@@ -17,7 +17,7 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
                       "&timezone=auto";
 
     // ΠΡΟΣΘΗΚΗ: Κλείνουμε τον αυστηρό έλεγχο πιστοποιητικών (VerifySsl{false})
-    cpr::Response r = cpr::Get(cpr::Url{url}, cpr::VerifySsl{false});
+    cpr::Response r = cpr::Get(cpr::Url{url}, cpr::Timeout{5000});
 
 
     // Αν όλα πήγαν καλά (Κωδικός 200)
@@ -31,7 +31,7 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
         std::cout << "----------------\n" << std::endl;
 
         weatherData["Pressure"] = data["current"]["surface_pressure"];
-        weatherData["windSpeed"] = data["current"]["wind_speed_10m"];
+        weatherData["WindSpeed"] = data["current"]["wind_speed_10m"];
 
         double tmax = data["daily"]["temperature_2m_max"][0];
         double tmin = data["daily"]["temperature_2m_min"][0];
@@ -41,10 +41,7 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
         weatherData["Photoperiod"] = photoperiod;
         weatherData["Temperature"] = WeatherUtils::dynamicTemp(tmin, tmax, photoperiod);
 
-        weatherData["WindDirection"] = WeatherUtils::windDirectionSC(data["current"]["wind_direction_10m"]);;
-
-        // Το φεγγάρι μπαίνει ΜΟΝΟ αν πετύχει η σύνδεση!
-        weatherData["LunarIllumination"] = 50.0;
+        weatherData["WindDirection"] = WeatherUtils::windDirectionSC(data["current"]["wind_direction_10m"]);
 
     } else {
         // Αν αποτύχει, τυπώνουμε τον ΑΚΡΙΒΗ λόγο (Error Logging)

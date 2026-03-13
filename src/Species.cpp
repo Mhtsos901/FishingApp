@@ -18,13 +18,6 @@ Species::Species(const std::string &fishName) {
         rules["Photoperiod"] = {14.0, 3.0, 0.08};
         rules["WindSpeed"] = {12.0, 10.0, 0.12};
     }
-    else if (name == "kefali") {
-        rules["Temperature"] = {};
-        rules["WindDirection"] = {};
-        rules["Pressure"] = {};
-        rules["Photoperiod"] = {};
-        rules["WindSpeed"] = {};
-    }
 
 }
 

@@ -11,8 +11,8 @@ int main() {
     std::cout << "======================================" << std::endl;
     std::cout << "Ginetai lipsi live kairou gia Agrinio...\n" << std::endl;
 
-    // 1. Ζητάμε τα ζωντανά δεδομένα (Αγρίνιο: Lat 38.63, Lon 21.41)
-    std::unordered_map<std::string, double> todayWeather = WeatherService::getLiveWeather(38.63, 21.41);
+    // 1. Ζητάμε τα ζωντανά δεδομένα (Γαβαλου)
+    std::unordered_map<std::string, double> todayWeather = WeatherService::getLiveWeather(38.52, 21.52);
 
     // 2. Έλεγχος Ασφαλείας (Safety Check): Αν το ίντερνετ κόπηκε ή το API απέτυχε
     if (todayWeather.empty()) {
