@@ -13,7 +13,7 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
                       "?latitude=" + std::to_string(latitude) +
                       "&longitude=" + std::to_string(longitude) +
                       "&current=surface_pressure,wind_speed_10m,wind_direction_10m,precipitation,temperature_2m"
-                      "&daily=temperature_2m_max,temperature_2m_min,daylight_duration,precipitation_sum"
+                      "&daily=temperature_2m_max,temperature_2m_min,daylight_duration,precipitation_sum,wind_direction_10m_dominant"
                       "&timezone=auto";
 
     // ΠΡΟΣΘΗΚΗ: Κλείνουμε τον αυστηρό έλεγχο πιστοποιητικών (VerifySsl{false})
@@ -24,12 +24,13 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
     if (r.status_code == 200) {
         json data = json::parse(r.text);
         std::cout << "\n[RAW API DATA]" << std::endl;
-        std::cout << "Piesh           : " << data["current"]["surface_pressure"] << " hPa" << std::endl;
-        std::cout << "Aeras (Taxuthta): " << data["current"]["wind_speed_10m"] << " km/h" << std::endl;
-        std::cout << "Aeras (Moires)  : " << data["current"]["wind_direction_10m"] << " degrees" << std::endl;
-        std::cout << "thermokrasia    : " << data["current"]["temperature_2m"] << " celcius" << std::endl;
-        std::cout << "daylight time   : " << data["daily"]["daylight_duration"][0].get<double>() / 3600.0 << " hours" << std::endl;
-        std::cout << "*****************\n" << std::endl;
+        std::cout << "Piesh                 : " << data["current"]["surface_pressure"] << " hPa" << std::endl;
+        std::cout << "Aeras (Taxuthta)      : " << data["current"]["wind_speed_10m"] << " km/h" << std::endl;
+        std::cout << "Aeras (Moires)        : " << data["current"]["wind_direction_10m"] << " degrees" << std::endl;
+        std::cout << "Aeras daily (Moires)  : " << data["daily"]["wind_direction_10m_dominant"][0] << " degrees" << std::endl;
+        std::cout << "thermokrasia          : " << data["current"]["temperature_2m"] << " celcius" << std::endl;
+        std::cout << "daylight time         : " << data["daily"]["daylight_duration"][0].get<double>() / 3600.0 << " hours" << std::endl;
+        std::cout << "***********************\n" << std::endl;
 
         weatherData["Pressure"] = data["current"]["surface_pressure"];
         weatherData["WindSpeed"] = data["current"]["wind_speed_10m"];
@@ -43,7 +44,7 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
         weatherData["Photoperiod"] = photoperiod;
         weatherData["Temperature"] = WeatherUtils::dynamicTemp(tmin, tmax, photoperiod);
 
-        weatherData["WindDirection"] = WeatherUtils::windDirectionSC(data["current"]["wind_direction_10m"]);
+        weatherData["WindDirection"] = WeatherUtils::windDirectionSC(data["daily"]["wind_direction_10m_dominant"][0]);
 
     } else {
         // Αν αποτύχει, τυπώνουμε τον ΑΚΡΙΒΗ λόγο (Error Logging)
