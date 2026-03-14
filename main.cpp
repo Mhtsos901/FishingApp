@@ -76,5 +76,11 @@ int main() {
     std::cout << "Time              : " << todayWeather["TimeZone"] << " 0clock" << std::endl;
     std::cout << "======================================" << std::endl;
 
+
+
+    std::cout << "\nPatiste Enter gia na kleisei..." << std::endl;
+    std::cin.ignore();
+    std::cin.get();
+
     return 0;
 }
