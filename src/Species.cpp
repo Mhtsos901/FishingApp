@@ -5,11 +5,12 @@ Species::Species(const std::string &fishName) {
     name = fishName;
 
     if (name == "grivadi") {
-        rules["Temperature"] = {20.0, 3.0, 0.45};
-        rules["WindDirection"] = {100.0, 25.0, 0.25};
-        rules["Pressure"] = {1010.0, 5.0, 0.12};
-        rules["Photoperiod"] = {13.0,2.0, 0.05};
-        rules["WindSpeed"] = {15.0, 12.0, 0.13};
+        rules["Temperature"] = {22.0, 5.0, 0.35};
+        rules["Pressure"] = {1010.0, 5.0, 0.25};
+        rules["WindDirection"] = {100.0, 40.0, 0.18};
+        rules["WindSpeed"] = {13.0, 13.0, 0.12};
+        rules["Photoperiod"] = {13.0,3.0, 0.10};
+
     }
     else if (name == "petalouda") {
         rules["Temperature"] = {22.0, 6.0, 0.45};
