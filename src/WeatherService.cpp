@@ -12,8 +12,8 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
     std::string url = "https://api.open-meteo.com/v1/forecast"
                       "?latitude=" + std::to_string(latitude) +
                       "&longitude=" + std::to_string(longitude) +
-                      "&current=surface_pressure,wind_speed_10m,wind_direction_10m"
-                      "&daily=temperature_2m_max,temperature_2m_min,daylight_duration"
+                      "&current=surface_pressure,wind_speed_10m,wind_direction_10m,precipitation,temperature_2m"
+                      "&daily=temperature_2m_max,temperature_2m_min,daylight_duration,precipitation_sum"
                       "&timezone=auto";
 
     // ΠΡΟΣΘΗΚΗ: Κλείνουμε τον αυστηρό έλεγχο πιστοποιητικών (VerifySsl{false})
@@ -23,15 +23,17 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
     // Αν όλα πήγαν καλά (Κωδικός 200)
     if (r.status_code == 200) {
         json data = json::parse(r.text);
-
         std::cout << "\n[RAW API DATA]" << std::endl;
-        std::cout << "Piezh: " << data["current"]["surface_pressure"] << " hPa" << std::endl;
+        std::cout << "Piesh           : " << data["current"]["surface_pressure"] << " hPa" << std::endl;
         std::cout << "Aeras (Taxuthta): " << data["current"]["wind_speed_10m"] << " km/h" << std::endl;
-        std::cout << "Aeras (Moires): " << data["current"]["wind_direction_10m"] << " degrees" << std::endl;
-        std::cout << "----------------\n" << std::endl;
+        std::cout << "Aeras (Moires)  : " << data["current"]["wind_direction_10m"] << " degrees" << std::endl;
+        std::cout << "thermokrasia    : " << data["current"]["temperature_2m"] << " celcius" << std::endl;
+        std::cout << "daylight time   : " << data["daily"]["daylight_duration"][0].get<double>() / 3600.0 << " hours" << std::endl;
+        std::cout << "*****************\n" << std::endl;
 
         weatherData["Pressure"] = data["current"]["surface_pressure"];
         weatherData["WindSpeed"] = data["current"]["wind_speed_10m"];
+        weatherData["Precipitation"] = data["current"]["precipitation"];
 
         double tmax = data["daily"]["temperature_2m_max"][0];
         double tmin = data["daily"]["temperature_2m_min"][0];

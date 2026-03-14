@@ -9,7 +9,8 @@ Species::Species(const std::string &fishName) {
         rules["Pressure"] = {1010.0, 5.0, 0.25};
         rules["WindDirection"] = {100.0, 40.0, 0.18};
         rules["WindSpeed"] = {13.0, 13.0, 0.12};
-        rules["Photoperiod"] = {13.0,3.0, 0.10};
+        rules["Photoperiod"] = {13.0,3.0, 0.05};
+        rules["Precipitation"] = {1.3, 6.0, 0.05};
 
     }
     else if (name == "petalouda") {

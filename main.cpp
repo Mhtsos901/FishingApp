@@ -41,6 +41,7 @@ int main() {
     // 4. Εκτύπωση Αποτελεσμάτων
     std::cout << "--------------------------------------" << std::endl;
     std::cout << "[Live Data Debug]" << std::endl;
+    std::cout << "Rain              : " << todayWeather["Precipitation"] << " mm" << std::endl;
     std::cout << "Water temperature : " << todayWeather["Temperature"] << " Celcius" << std::endl;
     std::cout << "Wind Speed        : " << todayWeather["WindSpeed"] << " km/h" << std::endl;
     std::cout << "Wind Direction    : " << todayWeather["WindDirection"] << " / 100 (Score)" << std::endl;
