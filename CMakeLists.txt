@@ -1,36 +1,52 @@
-cmake_minimum_required(VERSION 4.1)
-project(FishingApp)
+cmake_minimum_required(VERSION 3.16)
+project(FishingApp VERSION 2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Η ΛΥΣΗ ΓΙΑ ΤΑ DLLs (Στατική Σύνδεση) ---
+# --- Η ΛΥΣΗ: Ενεργοποιούμε τους αυτόματους μεταφραστές του Qt (MOC, RCC, UIC) ---
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
 
-set(BUILD_SHARED_LIBS off)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
+# --- Η διαδρομή για το Qt 6.10.2 ---
+set(CMAKE_PREFIX_PATH "C:/Qt/6.10.2/mingw_64")
 
-# --- 1. Ενεργοποιούμε το εργαλείο λήψης ---
-include(FetchContent)
+find_package(Qt6 REQUIRED COMPONENTS Core Network Gui Qml Quick QuickControls2)
 
-# --- 2. Κατεβάζουμε το JSON ---
-FetchContent_Declare(json
-        URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-)
-FetchContent_MakeAvailable(json)
+# --- Διορθώνει το Warning (QTP0001) για το πώς διαβάζει τα αρχεία το Qt 6.10 ---
+qt_policy(SET QTP0001 NEW)
 
-# --- 3. Κατεβάζουμε την CPR (Internet) ---
-FetchContent_Declare(cpr
-        GIT_REPOSITORY https://github.com/libcpr/cpr.git
-        GIT_TAG 1.10.5
-)
-FetchContent_MakeAvailable(cpr)
+# ---------------------------------------------------------------------------
 
-# --- 4. Δηλώνουμε ΟΛΑ τα αρχεία του project ---
-add_executable(FishingApp
+qt_add_executable(FishingApp
+        # --- Source Files (.cpp) ---
         main.cpp
         src/Species.cpp
         src/WeatherUtils.cpp
         src/WeatherService.cpp
+        src/EngineController.cpp
+
+        # --- Header Files (.hpp) ---
+        # ΠΡΟΣΘΗΚΗ: Βάζουμε τα headers για να τα δει ο μεταφραστής (MOC)
+        include/FishingEngine/Species.hpp
+        include/FishingEngine/WeatherUtils.hpp
+        include/FishingEngine/WeatherService.hpp
+        include/FishingEngine/EngineController.hpp
 )
 
-# --- 5. Συνδέουμε τις βιβλιοθήκες ---
-target_link_libraries(FishingApp PRIVATE cpr::cpr nlohmann_json::nlohmann_json)
+qt_add_qml_module(FishingApp
+        URI FishingEngine
+        VERSION 1.0
+        QML_FILES
+        Main.qml
+)
+
+target_link_libraries(FishingApp PRIVATE
+        Qt6::Core
+        Qt6::Network
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickControls2
+)
