@@ -45,6 +45,9 @@ int main() {
     std::cin >> x;
     if (x == 1) {
         Species targetFish("grivadi");
+        double liveSunrise = todayWeather["Sunrise"];
+        double liveSunset = todayWeather["Sunset"];
+        targetFish.updateRuleIdealValues("TimeZone", {liveSunrise, liveSunset});
         const double rawScore = targetFish.calculateScore(todayWeather);
         const double finalPercentage = rawScore * 100.0;
         std::cout << "\nStoxos: Grivadi" << std::endl;
@@ -65,6 +68,7 @@ int main() {
     std::cout << "Water temperature : " << todayWeather["Temperature"] << " Celcius" << std::endl;
     std::cout << "Wind Speed        : " << todayWeather["WindSpeed"] << " km/h" << std::endl;
     std::cout << "Wind Direction    : " << todayWeather["WindDirection"] << " / 100 (Score)" << std::endl;
+    std::cout << "Time              : " << todayWeather["TimeZone"] << " 0clock" << std::endl;
     std::cout << "======================================" << std::endl;
 
     return 0;

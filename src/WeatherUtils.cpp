@@ -1,5 +1,5 @@
 #include "../include/FishingEngine/WeatherUtils.hpp"
-
+#include <string>
 namespace WeatherUtils {
 
     double dynamicTemp (double minT, double maxT, double photoperiod) {
@@ -16,11 +16,11 @@ namespace WeatherUtils {
         }
         //northeast
         else if (degrees >= 22.5 && degrees < 67.5) {
-            return 1.0;
+            return 10.0;
         }
         //east
         else if (degrees >= 67.5 && degrees < 112.5) {
-            return 1.0;
+            return 15.0;
         }
         //southeast
         else if (degrees >=112.5 && degrees < 157.5) {
@@ -42,7 +42,17 @@ namespace WeatherUtils {
         else if (degrees >= 292.5 && degrees < 337.5) {
             return 30.0;
         }
-
         return 0.0;
+    }
+
+    double highTimeZone (const std::string& isoDatetime) {
+        size_t tPos = isoDatetime.find('T');
+        if (tPos == std::string::npos) return 0.0;
+
+        std::string timePart = isoDatetime.substr(tPos + 1); // "06:23"
+        int hours   = std::stoi(timePart.substr(0, 2));
+        int minutes = std::stoi(timePart.substr(3, 2));
+
+        return hours + (minutes / 60.0);
     }
 }

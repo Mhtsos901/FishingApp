@@ -13,7 +13,7 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
                       "?latitude=" + std::to_string(latitude) +
                       "&longitude=" + std::to_string(longitude) +
                       "&current=surface_pressure,wind_speed_10m,wind_direction_10m,precipitation,temperature_2m"
-                      "&daily=temperature_2m_max,temperature_2m_min,daylight_duration,precipitation_sum,wind_direction_10m_dominant"
+                      "&daily=temperature_2m_max,temperature_2m_min,daylight_duration,precipitation_sum,wind_direction_10m_dominant,sunset,sunrise"
                       "&timezone=auto";
 
     // ΠΡΟΣΘΗΚΗ: Κλείνουμε τον αυστηρό έλεγχο πιστοποιητικών (VerifySsl{false})
@@ -30,6 +30,9 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
         std::cout << "Aeras daily (Moires)  : " << data["daily"]["wind_direction_10m_dominant"][0] << " degrees" << std::endl;
         std::cout << "thermokrasia          : " << data["current"]["temperature_2m"] << " celcius" << std::endl;
         std::cout << "daylight time         : " << data["daily"]["daylight_duration"][0].get<double>() / 3600.0 << " hours" << std::endl;
+        std::cout << "sunrise               : " << data["daily"]["sunrise"][0] << " Oclock" << std::endl;
+        std::cout << "sunset                : " << data["daily"]["sunset"][0] << " Oclock" << std::endl;
+        std::cout << "Current Time          : " << data["current"]["time"] << " 0clock" << std::endl;
         std::cout << "***********************\n" << std::endl;
 
         weatherData["Pressure"] = data["current"]["surface_pressure"];
@@ -46,6 +49,9 @@ std::unordered_map<std::string, double> WeatherService::getLiveWeather(double la
 
         weatherData["WindDirection"] = WeatherUtils::windDirectionSC(data["daily"]["wind_direction_10m_dominant"][0]);
 
+        weatherData["Sunset"] = WeatherUtils::highTimeZone(data["daily"]["sunset"][0]);
+        weatherData["Sunrise"] = WeatherUtils::highTimeZone(data["daily"]["sunrise"][0]);
+        weatherData["TimeZone"] = WeatherUtils::highTimeZone(data["current"]["time"]);
     } else {
         // Αν αποτύχει, τυπώνουμε τον ΑΚΡΙΒΗ λόγο (Error Logging)
         std::cerr << "\n--- ΣΦΑΛΜΑ ΔΙΚΤΥΟΥ ---" << std::endl;
