@@ -20,7 +20,7 @@ namespace WeatherUtils {
         }
         //east
         else if (degrees >= 67.5 && degrees < 112.5) {
-            return 15.0;
+            return 25.0;
         }
         //southeast
         else if (degrees >=112.5 && degrees < 157.5) {
@@ -32,11 +32,11 @@ namespace WeatherUtils {
         }
         //southwest
         else if (degrees >= 202.5 && degrees < 247.5) {
-            return 75.0;
+            return 80.0;
         }
         //west
         else if (degrees >= 247.5 && degrees < 292.5) {
-            return 50.0;
+            return 60.0;
         }
         //northwest
         else if (degrees >= 292.5 && degrees < 337.5) {
