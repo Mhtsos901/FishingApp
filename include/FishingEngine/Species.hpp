@@ -20,7 +20,7 @@ private:
 public:
     Species(const std::string& fishName);
 
-    double calculateScore(const std::unordered_map<std::string, double>& currentWeather);
+    double calculateScore(const std::unordered_map<std::string, double>& currentWeather) const;
 
     void updateRuleIdealValues(const std::string& parameterName, const std::vector<double>& newIdealValues);
 };

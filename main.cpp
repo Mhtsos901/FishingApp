@@ -45,9 +45,14 @@ int main() {
     std::cin >> x;
     if (x == 1) {
         Species targetFish("grivadi");
-        double liveSunrise = todayWeather["Sunrise"];
-        double liveSunset = todayWeather["Sunset"];
-        targetFish.updateRuleIdealValues("TimeZone", {liveSunrise, liveSunset});
+        if (todayWeather.contains("Sunrise") && todayWeather.contains("Sunset")) {
+            double liveSunrise = todayWeather["Sunrise"];
+            double liveSunset = todayWeather["Sunset"];
+            targetFish.updateRuleIdealValues("TimeZone", {todayWeather.at("Sunrise"), todayWeather.at("Sunset")});
+        }
+        else {
+            std::cerr << "Warning: Sunrise/Sunset data missing, TimeZone rule not updated." << std::endl;
+        }
         const double rawScore = targetFish.calculateScore(todayWeather);
         const double finalPercentage = rawScore * 100.0;
         std::cout << "\nStoxos: Grivadi" << std::endl;

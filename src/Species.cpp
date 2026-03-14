@@ -6,10 +6,10 @@ Species::Species(const std::string &fishName) {
 
     if (name == "grivadi") {
         rules["Temperature"] = {{20.0}, 5.0, 0.35};
-        rules["Pressure"] = {{1010.0}, 13.0, 0.25};
+        rules["Pressure"] = {{1005.0}, 13.0, 0.25};
         rules["WindDirection"] = {{100.0}, 40.0, 0.15};
-        rules["WindSpeed"] = {{13.0}, 12.0, 0.1};
-        rules["TimeZone"] = {{0.0, 0.0}, 6.0, 0.1};
+        rules["TimeZone"] = {{0.0, 0.0}, 6.0, 0.15};
+        rules["WindSpeed"] = {{13.0}, 12.0, 0.05};
         rules["Precipitation"] = {{1.3}, 6.0, 0.05};
 
     }
@@ -23,28 +23,33 @@ Species::Species(const std::string &fishName) {
 
 }
 
-double Species::calculateScore(const std::unordered_map<std::string, double>& currentWeather) {
+double Species::calculateScore(const std::unordered_map<std::string, double>& currentWeather) const {
     double totalScore = 0.0;
+    double weightSum = 0.0;
 
-    for (const auto& [parameterName, currentValue] : currentWeather) {
-        if (rules.contains(parameterName)) {
-            const auto& currentRule = rules[parameterName];
+    for (const auto& [parameterName, currentRule] : rules) {
+        auto it = currentWeather.find(parameterName);
+        if (it == currentWeather.end()) continue;
 
-            double minDifference = std::numeric_limits<double>::max();
+        const double currentValue = it->second;
+        double minDifference = std::numeric_limits<double>::max();
 
-            for (double idealValue : currentRule.idealValues) {
-                double currentDifference = std::abs(currentValue - idealValue);
-                if (currentDifference < minDifference) {
-                    minDifference = currentDifference;
-                }
+        for (double idealValue : currentRule.idealValues) {
+            double diff = std::abs(currentValue - idealValue);
+            if (diff < minDifference) {
+                minDifference = diff;
             }
-
-            const double parameterScore = std::exp(-std::pow(minDifference, 2) / (2 * std::pow(currentRule.tolerance, 2)));
-
-            totalScore += parameterScore * currentRule.weight;
         }
+
+        const double parameterScore = std::exp(
+            -std::pow(minDifference, 2) / (2 * std::pow(currentRule.tolerance, 2))
+        );
+
+        totalScore += parameterScore * currentRule.weight;
+        weightSum += currentRule.weight;
     }
-    return totalScore;
+
+    return (weightSum > 0.0) ? totalScore / weightSum : 0.0;
 }
 
 void Species::updateRuleIdealValues(const std::string& parameterName, const std::vector<double>& newIdealValues) {
