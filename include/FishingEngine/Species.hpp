@@ -10,12 +10,18 @@ struct RuleDefinition {
     double weight;
 };
 
-
+enum class FishSpecies {
+    Carp,
+    Petalouda,
+    Unknown
+};
 
 class Species {
 private:
     std::string name;
     std::unordered_map<std::string, RuleDefinition> rules;
+
+    FishSpecies GetSpeciesEnum(const std::string& nameStr);
 
 public:
     Species(const std::string& fishName);

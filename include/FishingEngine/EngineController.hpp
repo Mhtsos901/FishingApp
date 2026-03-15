@@ -18,7 +18,8 @@ public:
     double windDegrees() const { return m_windDegrees; }
 
     signals:
-        void calculationFinished(double percentage, const QString& debugInfo);
+        // Στέλνουμε: % Επιφάνειας, % Θερμοκλίνας, Ιδανικό Βάθος, και το Κείμενο
+        void calculationFinished(double surfacePct, double thermoPct, double bestDepth, const QString& debugInfo);
     void calculationError(const QString& errorMessage);
     // --- ΝΕΟ: Σήμα που λέει στο QML "ο αέρας άλλαξε, ξαναζωγράφισε το βέλος" ---
     void windDegreesChanged();
@@ -30,5 +31,6 @@ private slots:
 private:
     WeatherService* m_weatherService;
     int m_currentFishId;
-    double m_windDegrees; // <--- ΝΕΟ: Αποθήκευση των μοιρών εδώ
+    int m_currentLocationId;
+    double m_windDegrees;
 };

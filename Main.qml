@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Controls.Material
 
 Window {
-    width: 400
+    width: 500
     height: 600
     visible: true
     title: "Fishing Engine v2.0"
@@ -15,8 +15,20 @@ Window {
     // 1. ΤΟ "ΑΥΤΙ" ΤΟΥ UI
     Connections {
         target: Backend
-        function onCalculationFinished(percentage, debugInfo) {
-            resultText.text = "Πιθανότητα: " + percentage.toFixed(1) + "%\n\n" + debugInfo
+        // Προσθέσαμε τις νέες παραμέτρους: surfacePct, thermoPct, thermoDepth
+        function onCalculationFinished(surfacePct, thermoPct, thermoDepth, debugInfo) {
+            let resultString = "Επιφάνεια: <font color='#2196F3'>" + surfacePct.toFixed(1) + "%</font><br>"
+
+            if (thermoDepth > 0) {
+                // Αν βρήκαμε θερμοκλίνα, δείχνουμε το ιδανικό βάθος
+                resultString += "Στα " + thermoDepth.toFixed(0) + " μέτρα: <font color='#4CAF50'><b>" + thermoPct.toFixed(1) + "%</b></font>"
+            } else {
+                resultString += "<font color='#757575'>Η λίμνη είναι πλήρως ανακατεμένη.</font>"
+            }
+
+            // Το textFormat επιτρέπει HTML κώδικα για να βάλουμε χρώματα
+            resultText.textFormat = Text.RichText
+            resultText.text = resultString + "<br><br><font size='3' color='#555555'>" + debugInfo.replace(/\n/g, "<br>") + "</font>"
         }
         function onCalculationError(errorMessage) {
             resultText.text = "Σφάλμα:\n" + errorMessage

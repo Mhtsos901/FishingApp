@@ -1,10 +1,18 @@
 #include "../include/FishingEngine/Species.hpp"
 #include <cmath>
 
+FishSpecies Species::GetSpeciesEnum(const std::string& nameStr) {
+    if (nameStr == "grivadi") return FishSpecies::Carp;
+    if (nameStr == "petalouda") return FishSpecies::Petalouda;
+    return FishSpecies::Unknown;
+}
+
 Species::Species(const std::string &fishName) {
     name = fishName;
 
-    if (name == "grivadi") {
+    FishSpecies currentSpecies = GetSpeciesEnum(fishName);
+
+    if (currentSpecies == FishSpecies::Carp) {
         rules["Temperature"] = {{20.0}, 5.0, 0.35};
         rules["Pressure"] = {{1005.0}, 13.0, 0.25};
         rules["WindDirection"] = {{100.0}, 40.0, 0.15};
@@ -13,12 +21,13 @@ Species::Species(const std::string &fishName) {
         rules["Precipitation"] = {{2.0}, 4.0, 0.05};
 
     }
-    else if (name == "petalouda") {
-        rules["Temperature"] = {{22.0}, 6.0, 0.45};
-        rules["WindDirection"] = {{100.0}, 40.0, 0.2};
-        rules["Pressure"] = {{1005.0}, 12.0, 0.15};
-        rules["Photoperiod"] = {{14.0}, 3.0, 0.08};
-        rules["WindSpeed"] = {{12.0}, 10.0, 0.12};
+    else if (currentSpecies == FishSpecies::Petalouda) {
+        rules["Temperature"] = {{21.5}, 8.5, 0.35};
+        rules["Pressure"] = {{1013.0}, 10.0, 0.20};
+        rules["WindDirection"] = {{100.0}, 50.0, 0.10};
+        rules["TimeZone"] = {{0.0, 0.0}, 6.0, 0.15};
+        rules["WindSpeed"] = {{10.0}, 15.0, 0.05};
+        rules["Precipitation"] = {{1.5}, 5.0, 0.05};
     }
 
 }
