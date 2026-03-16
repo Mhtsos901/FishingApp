@@ -1,6 +1,8 @@
 #pragma once
+
 #include <QObject>
 #include <QString>
+#include <QVariantMap>
 #include "WeatherService.hpp"
 #include "Species.hpp"
 
@@ -14,15 +16,14 @@ public:
 
     Q_INVOKABLE void calculateCatchProbability(int locationId, int fishId);
 
-    // --- ΝΕΟ: Getter συνάρτηση για το Property ---
     double windDegrees() const { return m_windDegrees; }
 
     signals:
         // Στέλνουμε: % Επιφάνειας, % Θερμοκλίνας, Ιδανικό Βάθος, και το Κείμενο
-        void calculationFinished(double surfacePct, double thermoPct, double bestDepth, const QString& debugInfo);
-    void calculationError(const QString& errorMessage);
-    // --- ΝΕΟ: Σήμα που λέει στο QML "ο αέρας άλλαξε, ξαναζωγράφισε το βέλος" ---
-    void windDegreesChanged();
+        void calculationFinished(double surfacePct, double thermoPct, double bestDepth, const QVariantMap& stats);
+
+        void calculationError(const QString& errorMessage);
+        void windDegreesChanged();
 
 private slots:
     void onWeatherReady(const std::unordered_map<std::string, double>& weatherData);

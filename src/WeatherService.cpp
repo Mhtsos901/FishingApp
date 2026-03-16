@@ -28,55 +28,77 @@ void WeatherService::getLiveWeather(double latitude, double longitude) {
 }
 
 void WeatherService::onNetworkReply(QNetworkReply* reply) {
-    // Best Practice: Διαγράφουμε το reply object όταν τελειώσει το event loop
-    // για να αποφύγουμε διαρροή μνήμης (Memory Leak)
+    // Best Practice: Αποφυγή Memory Leak
     reply->deleteLater();
 
-    // 1. Έλεγχος Σφαλμάτων (Error Handling)
+    // 1. Έλεγχος δικτύου (π.χ. κομμένο ίντερνετ)
     if (reply->error() != QNetworkReply::NoError) {
-        emit errorOccurred(reply->errorString().toStdString());
+        emit errorOccurred("Network Error: " + reply->errorString().toStdString());
         return;
     }
 
-    // 2. Διάβασμα Δεδομένων
-    QByteArray responseData = reply->readAll();
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData);
+    // 2. Ασφαλής αποκωδικοποίηση JSON (Safe Parsing)
+    QJsonParseError parseError;
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(reply->readAll(), &parseError);
 
-    if (!jsonDoc.isObject()) {
-        emit errorOccurred("Invalid JSON format from API");
+    // Ελέγχουμε αν το κείμενο ήταν όντως έγκυρο JSON
+    if (parseError.error != QJsonParseError::NoError || !jsonDoc.isObject()) {
+        emit errorOccurred("API Error: Το αρχείο JSON είναι κατεστραμμένο.");
         return;
     }
 
-    // 3. Εξαγωγή JSON (JSON Parsing - Qt Way)
     QJsonObject data = jsonDoc.object();
+
+    // 3. DEFENSIVE CHECK: Υπάρχουν τα βασικά αντικείμενα;
+    if (!data.contains("current") || !data.contains("daily")) {
+        emit errorOccurred("API Error: Λείπουν τα δεδομένα 'current' ή 'daily'.");
+        return;
+    }
+
     QJsonObject current = data["current"].toObject();
     QJsonObject daily = data["daily"].toObject();
 
+    // 4. ΑΣΦΑΛΗΣ ΕΞΑΓΩΓΗ ARRAYS (Δεν εμπιστευόμαστε ότι έχουν μέγεθος > 0)
+    QJsonArray tmaxArr = daily["temperature_2m_max"].toArray();
+    QJsonArray tminArr = daily["temperature_2m_min"].toArray();
+    QJsonArray daylightArr = daily["daylight_duration"].toArray();
+    QJsonArray windDirArr = daily["wind_direction_10m_dominant"].toArray();
+    QJsonArray sunsetArr = daily["sunset"].toArray();
+    QJsonArray sunriseArr = daily["sunrise"].toArray();
+
+    // Αν κάποιο από τα κρίσιμα arrays είναι άδειο, σταματάμε αμέσως!
+    if (tmaxArr.isEmpty() || tminArr.isEmpty() || daylightArr.isEmpty() || windDirArr.isEmpty()) {
+        emit errorOccurred("API Error: Ελλιπή δεδομένα (Empty Arrays) από το Open-Meteo.");
+        return;
+    }
+
+    // 5. ΠΛΕΟΝ ΕΙΜΑΣΤΕ ΑΣΦΑΛΕΙΣ ΝΑ ΓΕΜΙΣΟΥΜΕ ΤΟ MAP
     std::unordered_map<std::string, double> weatherData;
 
-    // Γεμίζουμε το map όπως έκανες πριν, αλλά χρησιμοποιώντας τις μεθόδους του Qt (toDouble, toArray, toString)
     weatherData["Pressure"] = current["surface_pressure"].toDouble();
     weatherData["WindSpeed"] = current["wind_speed_10m"].toDouble();
     weatherData["Precipitation"] = current["precipitation"].toDouble();
     weatherData["AirTemperature"] = current["temperature_2m"].toDouble();
-    weatherData["RawWindDirection"] = current["wind_direction_10m"].toDouble();
 
-    double tmax = daily["temperature_2m_max"].toArray()[0].toDouble();
-    double tmin = daily["temperature_2m_min"].toArray()[0].toDouble();
-    double daylightSeconds = daily["daylight_duration"].toArray()[0].toDouble();
+    // ΝΕΟ: Πετάξαμε τη συνάρτηση windDirectionSC. Τώρα περνάμε τις ΚΑΘΑΡΕΣ μοίρες!
+    weatherData["WindDirection"] = windDirArr[0].toDouble();
 
+    double tmax = tmaxArr[0].toDouble();
+    double tmin = tminArr[0].toDouble();
+    double daylightSeconds = daylightArr[0].toDouble();
     double photoperiod = daylightSeconds / 3600.0;
-    weatherData["Photoperiod"] = photoperiod;
+
     weatherData["Temperature"] = WeatherUtils::dynamicTemp(tmin, tmax, photoperiod);
 
-    weatherData["WindDirection"] = WeatherUtils::windDirectionSC(daily["wind_direction_10m_dominant"].toArray()[0].toDouble());
+    // Εξαγωγή Ώρας (με έλεγχο ασφαλείας για Ανατολή/Δύση)
+    if (!sunsetArr.isEmpty() && !sunriseArr.isEmpty()) {
+        weatherData["Sunset"] = WeatherUtils::highTimeZone(sunsetArr[0].toString().toStdString());
+        weatherData["Sunrise"] = WeatherUtils::highTimeZone(sunriseArr[0].toString().toStdString());
+    }
 
-    // Μετατροπή των QString σε std::string για να είναι συμβατά με τη δική σου WeatherUtils
-    weatherData["Sunset"] = WeatherUtils::highTimeZone(daily["sunset"].toArray()[0].toString().toStdString());
-    weatherData["Sunrise"] = WeatherUtils::highTimeZone(daily["sunrise"].toArray()[0].toString().toStdString());
-    weatherData["TimeZone"] = WeatherUtils::highTimeZone(current["time"].toString().toStdString());
+    // ΝΕΟ: Μετονομάσαμε το "TimeZone" σε "TimeOfDay" για να ταιριάζει με τον νέο κανόνα στο Species!
+    weatherData["TimeOfDay"] = WeatherUtils::highTimeZone(current["time"].toString().toStdString());
 
-    // 4. ΕΚΠΟΜΠΗ ΣΗΜΑΤΟΣ (Emit Signal)!
-    // Αυτό λέει στο υπόλοιπο πρόγραμμα: "Πάρτε τα δεδομένα, είναι έτοιμα!"
+    // 6. ΕΚΠΟΜΠΗ ΣΗΜΑΤΟΣ (Όλα πήγαν τέλεια)
     emit weatherDataReady(weatherData);
 }

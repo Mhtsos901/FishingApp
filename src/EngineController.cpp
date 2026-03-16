@@ -3,6 +3,7 @@
 #include <QString>
 #include <QDate>
 #include <cmath>
+#include <memory>
 
 EngineController::EngineController(QObject *parent) : QObject(parent), m_currentFishId(0) {
     // Αρχικοποιούμε το Service και συνδέουμε τα Signals του με τα δικά μας Slots
@@ -35,14 +36,17 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         return;
     }
 
-    Species* targetFish = nullptr;
+    std::unique_ptr<Species> targetFish;
     if (m_currentFishId == 1) {
-        targetFish = new Species("grivadi");
+        targetFish = std::make_unique<Species>(FishSpecies::Carp);
         if (weatherData.contains("Sunrise") && weatherData.contains("Sunset")) {
-            targetFish->updateRuleIdealValues("TimeZone", {weatherData.at("Sunrise"), weatherData.at("Sunset")});
+            targetFish->updateRuleIdealValues("TimeOfDay", {weatherData.at("Sunrise"), weatherData.at("Sunset")});
         }
     } else if (m_currentFishId == 2) {
-        targetFish = new Species("petalouda");
+        targetFish = std::make_unique<Species>(FishSpecies::Petalouda);
+        if (weatherData.contains("Sunrise") && weatherData.contains("Sunset")) {
+            targetFish->updateRuleIdealValues("TimeOfDay", {weatherData.at("Sunrise"), weatherData.at("Sunset")});
+        }
     } else {
         emit calculationError("Σφάλμα: Άγνωστο ψάρι!");
         return;
@@ -99,7 +103,7 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
     }
 
     // 4. ΕΤΟΙΜΑΣΙΑ ΤΟΥ UI & ΣΗΜΑΤΩΝ (Signals)
-    m_windDegrees = weatherData.at("RawWindDirection");
+    m_windDegrees = weatherData.at("WindDirection");
     emit windDegreesChanged();
 
     // Helper function για την Πυξίδα
@@ -132,40 +136,22 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         return 12;
     };
 
-    QString compassDir = getCompassDirection(m_windDegrees);
-    int beaufort = getBeaufort(windKmh);
-    double airTemp = weatherData.at("AirTemperature");
+    QVariantMap weatherStats;
+    weatherStats["thermoclineDepth"] = z_th;
+    weatherStats["surfaceTemp"] = surfaceTemp;
+    weatherStats["bestDepth"] = bestDepth;
+    weatherStats["bestTemp"] = bestTemp;
+    weatherStats["airTemp"] = weatherData.at("AirTemperature");
+    weatherStats["beaufort"] = getBeaufort(windKmh);
+    weatherStats["windKmh"] = windKmh;
+    weatherStats["compassDir"] = getCompassDirection(m_windDegrees);
 
-    // --- Χτίζουμε το κείμενο με τον έλεγχο για το Επιλίμνιο ---
-    QString debugInfo;
+    // Αμυντική προσέγγιση για βροχή/πίεση (σε περίπτωση που δεν ήρθαν από το API)
+    weatherStats["rain"] = weatherData.contains("Precipitation") ? weatherData.at("Precipitation") : 0.0;
+    weatherStats["pressure"] = weatherData.contains("Pressure") ? weatherData.at("Pressure") : 0.0;
 
-    if (z_th > 0.0) {
-        debugInfo = QString("Βάθος Επιλιμνίου: 0 έως %1 m\nΘερμ. Νερού (Επιφάνεια): %2 °C\nΘερμ. Νερού (%3m): %4 °C\nΘερμ. Αέρα: %5 °C\nΑέρας: %6 Μποφόρ - %7 km/h [%8]\nΒροχή: %9 mm\nΒαρόμετρο: %10 hPa")
-                            .arg(z_th, 0, 'f', 1)
-                            .arg(surfaceTemp, 0, 'f', 1)
-                            .arg(bestDepth, 0, 'f', 0)
-                            .arg(bestTemp, 0, 'f', 1)
-                            .arg(airTemp, 0, 'f', 1)
-                            .arg(beaufort)
-                            .arg(windKmh, 0, 'f', 1)
-                            .arg(compassDir)
-                            .arg(weatherData.at("Precipitation"), 0, 'f', 1)
-                            .arg(weatherData.at("Pressure"), 0, 'f', 1);
-    } else {
-        debugInfo = QString("Βάθος Επιλιμνίου: Η λίμνη είναι ανακατεμένη\nΘερμ. Νερού (Επιφάνεια): %1 °C\nΘερμ. Αέρα: %2 °C\nΑέρας: %3 Μποφόρ - %4 km/h [%5]\nΒροχή: %6 mm\nΒαρόμετρο: %7 hPa")
-                            .arg(surfaceTemp, 0, 'f', 1)
-                            .arg(airTemp, 0, 'f', 1)
-                            .arg(beaufort)
-                            .arg(windKmh, 0, 'f', 1)
-                            .arg(compassDir)
-                            .arg(weatherData.at("Precipitation"), 0, 'f', 1)
-                            .arg(weatherData.at("Pressure"), 0, 'f', 1);
-    }
-
-    // ΣΤΕΛΝΟΥΜΕ 4 ΔΕΔΟΜΕΝΑ ΣΤΟ UI!
-    emit calculationFinished(surfacePct, bestThermoPct, bestDepth, debugInfo);
-
-    delete targetFish; // Αποφυγή Memory Leak!
+    // ΣΤΕΛΝΟΥΜΕ ΜΟΝΟ ΑΡΙΘΜΟΥΣ ΚΑΙ ΔΕΔΟΜΕΝΑ ΣΤΟ UI!
+    emit calculationFinished(surfacePct, bestThermoPct, bestDepth, weatherStats);
 }
 
 void EngineController::onWeatherError(const std::string& errorMsg) {

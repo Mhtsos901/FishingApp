@@ -15,8 +15,9 @@ Window {
     // 1. ΤΟ "ΑΥΤΙ" ΤΟΥ UI
     Connections {
         target: Backend
-        // Προσθέσαμε τις νέες παραμέτρους: surfacePct, thermoPct, thermoDepth
-        function onCalculationFinished(surfacePct, thermoPct, thermoDepth, debugInfo) {
+
+        // ΝΕΟ: Η παράμετρος λέγεται πλέον 'stats' και είναι JavaScript Object!
+        function onCalculationFinished(surfacePct, thermoPct, thermoDepth, stats) {
             let resultString = "Επιφάνεια: <font color='#2196F3'>" + surfacePct.toFixed(1) + "%</font><br>"
 
             if (thermoDepth > 0) {
@@ -26,10 +27,30 @@ Window {
                 resultString += "<font color='#757575'>Η λίμνη είναι πλήρως ανακατεμένη.</font>"
             }
 
-            // Το textFormat επιτρέπει HTML κώδικα για να βάλουμε χρώματα
+            // --- ΕΔΩ ΤΟ QML ΧΤΙΖΕΙ ΤΟ ΓΡΑΦΙΚΟ ΚΟΜΜΑΤΙ (View Logic) ---
+            let detailsHtml = "";
+
+            // Έλεγχος για το αν υπάρχει θερμοκλίνα
+            if (stats.thermoclineDepth > 0.0) {
+                detailsHtml += `Βάθος Επιλιμνίου: 0 έως ${stats.thermoclineDepth.toFixed(1)} m<br>`;
+                detailsHtml += `Θερμ. Νερού (Επιφάνεια): ${stats.surfaceTemp.toFixed(1)} °C<br>`;
+                detailsHtml += `Θερμ. Νερού (${stats.bestDepth}m): ${stats.bestTemp.toFixed(1)} °C<br>`;
+            } else {
+                detailsHtml += `Βάθος Επιλιμνίου: Η λίμνη είναι ανακατεμένη<br>`;
+                detailsHtml += `Θερμ. Νερού (Επιφάνεια): ${stats.surfaceTemp.toFixed(1)} °C<br>`;
+            }
+
+            // Προσθήκη των κοινών στατιστικών (αέρα, βροχής, πίεσης)
+            detailsHtml += `Θερμ. Αέρα: ${stats.airTemp.toFixed(1)} °C<br>`;
+            detailsHtml += `Αέρας: ${stats.beaufort} Μποφόρ - ${stats.windKmh.toFixed(1)} km/h [${stats.compassDir}]<br>`;
+            detailsHtml += `Βροχή: ${stats.rain.toFixed(1)} mm<br>`;
+            detailsHtml += `Βαρόμετρο: ${stats.pressure.toFixed(1)} hPa`;
+
+            // Ενημέρωση του UI
             resultText.textFormat = Text.RichText
-            resultText.text = resultString + "<br><br><font size='3' color='#555555'>" + debugInfo.replace(/\n/g, "<br>") + "</font>"
+            resultText.text = resultString + "<br><br><font size='3' color='#555555'>" + detailsHtml + "</font>"
         }
+
         function onCalculationError(errorMessage) {
             resultText.text = "Σφάλμα:\n" + errorMessage
         }
@@ -88,7 +109,7 @@ Window {
             }
         }
 
-        // --- ΝΕΟ: ΠΛΑΙΣΙΟ ΑΠΟΤΕΛΕΣΜΑΤΟΣ ΜΕ ΒΕΛΟΣ ---
+        // --- ΠΛΑΙΣΙΟ ΑΠΟΤΕΛΕΣΜΑΤΟΣ ΜΕ ΒΕΛΟΣ ---
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 25
