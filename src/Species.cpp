@@ -81,7 +81,9 @@ Species::Species(FishSpecies currentSpecies) {
 
 }
 
-double Species::calculateScore(const std::unordered_map<std::string, double>& currentWeather) const {
+// ΠΡΟΣΟΧΗ: Αλλάξαμε τον τύπο επιστροφής από double σε ScoreDetails
+ScoreDetails Species::calculateScore(const std::unordered_map<std::string, double>& currentWeather) const {
+    ScoreDetails result; // ΝΕΟ: Φτιάχνουμε τον άδειο "Φάκελο" Διαγνωστικών
     double totalScore = 0.0;
     double weightSum = 0.0;
 
@@ -111,7 +113,7 @@ double Species::calculateScore(const std::unordered_map<std::string, double>& cu
         // --- ΜΟΝΟΠΑΤΙ 2: Συνεχή & Κυκλικά Δεδομένα (Asymmetrical Gaussian Falloff) ---
         else {
             double minDifference = std::numeric_limits<double>::max();
-            double appliedTolerance = 0.0; // ΝΕΟ: Εδώ θα αποθηκεύσουμε το σωστό tolerance (Below ή Above)
+            double appliedTolerance = 0.0; // Εδώ θα αποθηκεύσουμε το σωστό tolerance (Below ή Above)
 
             // Ψάχνουμε να βρούμε την πιο κοντινή ιδανική τιμή
             for (double idealValue : currentRule.idealValues) {
@@ -134,7 +136,7 @@ double Species::calculateScore(const std::unordered_map<std::string, double>& cu
                 // Αν βρήκαμε μια καλύτερη (πιο κοντινή) ιδανική τιμή, την κρατάμε
                 if (diff < minDifference) {
                     minDifference = diff;
-                    // ΝΕΟ: Επιλέγουμε δυναμικά το Tolerance βάσει της κατεύθυνσης
+                    // Επιλέγουμε δυναμικά το Tolerance βάσει της κατεύθυνσης
                     appliedTolerance = isBelow ? currentRule.toleranceBelow : currentRule.toleranceAbove;
                 }
             }
@@ -150,13 +152,19 @@ double Species::calculateScore(const std::unordered_map<std::string, double>& cu
             }
         }
 
+        // --- ΝΕΟ: Αποθηκεύουμε το επιμέρους σκορ στον Φάκελο (Map) ---
+        result.parameterScores[parameterName] = parameterScore;
+
         // --- ΤΕΛΙΚΟ ΒΗΜΑ: Σταθμισμένη Πρόσθεση (Weighted Addition) ---
         totalScore += parameterScore * currentRule.weight;
         weightSum += currentRule.weight;
     }
 
-    // Επιστρέφουμε τον μέσο όρο (Weighted Average), ελέγχοντας ξανά για διαίρεση με το 0
-    return (weightSum > 0.0) ? (totalScore / weightSum) : 0.0;
+    // Υπολογίζουμε το συνολικό σκορ (Weighted Average) και το βάζουμε στον Φάκελο
+    result.totalScore = (weightSum > 0.0) ? (totalScore / weightSum) : 0.0;
+
+    // Επιστρέφουμε ολόκληρο το αντικείμενο!
+    return result;
 }
 
 void Species::updateRuleIdealValues(const std::string& parameterName, const std::vector<double>& newIdealValues) {

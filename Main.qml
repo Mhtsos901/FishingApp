@@ -16,10 +16,31 @@ Window {
     Material.accent: Material.LightBlue
     Material.primary: Material.Blue
 
+    // --- ΝΕΟ: Ιδιότητα για το χρώμα του βέλους (Default: Μπλε) ---
+    property string arrowColor: "#2196F3"
+
     // 1. ΤΟ "ΑΥΤΙ" ΤΟΥ UI
     Connections {
         target: Backend
         function onCalculationFinished(surfacePct, thermoPct, thermoDepth, stats) {
+
+            // --- ΝΕΟ: Helper συνάρτηση για τα Χρώματα (Visual Telemetry) ---
+            function getScoreColor(score) {
+                if (score >= 0.8) return "#4CAF50"; // Πράσινο (Τέλειο)
+                if (score >= 0.6) return "#8BC34A"; // Ανοιχτό Πράσινο (Καλό)
+                if (score >= 0.4) return "#FFC107"; // Κίτρινο (Μέτριο)
+                if (score >= 0.2) return "#FF9800"; // Πορτοκαλί (Κακό)
+                return "#F44336"; // Κόκκινο (Τραγικό)
+            }
+
+            // Χρωματίζουμε δυναμικά το βέλος του ανέμου!
+            arrowColor = getScoreColor(stats.scoreWindDir);
+
+            // Παίρνουμε τα χρώματα για τα κείμενα
+            let tempColor = getScoreColor(stats.scoreTemp);
+            let rainColor = getScoreColor(stats.scoreRain);
+            let pressColor = getScoreColor(stats.scorePressure);
+
             let resultString = "Επιφάνεια: <font color='#2196F3'>" + surfacePct.toFixed(1) + "%</font><br>"
 
             if (thermoDepth > 0) {
@@ -29,19 +50,21 @@ Window {
             }
 
             let detailsHtml = "";
+
+            // --- ΝΕΟ: Εφαρμόζουμε τα χρώματα (<font color=...>) ---
             if (stats.thermoclineDepth > 0.0) {
                 detailsHtml += `Βάθος Επιλιμνίου: 0 έως ${stats.thermoclineDepth.toFixed(1)} m<br>`;
-                detailsHtml += `Θερμ. Νερού (Επιφάνεια): ${stats.surfaceTemp.toFixed(1)} °C<br>`;
-                detailsHtml += `Θερμ. Νερού (${stats.bestDepth}m): ${stats.bestTemp.toFixed(1)} °C<br>`;
+                detailsHtml += `Θερμ. Νερού (Επιφάνεια): <font color='${tempColor}'><b>${stats.surfaceTemp.toFixed(1)} °C</b></font><br>`;
+                detailsHtml += `Θερμ. Νερού (${stats.bestDepth}m): <font color='${tempColor}'><b>${stats.bestTemp.toFixed(1)} °C</b></font><br>`;
             } else {
                 detailsHtml += `Βάθος Επιλιμνίου: Η λίμνη είναι ανακατεμένη<br>`;
-                detailsHtml += `Θερμ. Νερού (Επιφάνεια): ${stats.surfaceTemp.toFixed(1)} °C<br>`;
+                detailsHtml += `Θερμ. Νερού (Επιφάνεια): <font color='${tempColor}'><b>${stats.surfaceTemp.toFixed(1)} °C</b></font><br>`;
             }
 
             detailsHtml += `Θερμ. Αέρα: ${stats.airTemp.toFixed(1)} °C<br>`;
             detailsHtml += `Αέρας: ${stats.beaufort} Μποφόρ - ${stats.windKmh.toFixed(1)} km/h [${stats.compassDir}]<br>`;
-            detailsHtml += `Βροχή: ${stats.rain.toFixed(1)} mm<br>`;
-            detailsHtml += `Βαρόμετρο: ${stats.pressure.toFixed(1)} hPa`;
+            detailsHtml += `Βροχή: <font color='${rainColor}'><b>${stats.rain.toFixed(1)} mm</b></font><br>`;
+            detailsHtml += `Βαρόμετρο: <font color='${pressColor}'><b>${stats.pressure.toFixed(1)} hPa</b></font>`;
 
             resultText.textFormat = Text.RichText
             resultText.text = resultString + "<br><br><font size='3' color='#555555'>" + detailsHtml + "</font>"
@@ -81,14 +104,13 @@ Window {
         // --- Κάρτα Ρυθμίσεων (Material Card) ---
         Pane {
             Layout.fillWidth: true
-            Material.elevation: 4 // Προσθέτει τη σκιά της κάρτας!
+            Material.elevation: 4
             padding: 25
 
             ColumnLayout {
                 width: parent.width
                 spacing: 15
 
-                // Label & ComboBox για Λίμνη
                 Text {
                     text: "ΤΟΠΟΘΕΣΙΑ"
                     font.pixelSize: 12
@@ -102,14 +124,12 @@ Window {
                     textRole: "text"
                     valueRole: "value"
                     model: ListModel {
-                        // ΠΡΟΣΟΧΗ: Αλλάξαμε τους μαγικούς αριθμούς σε Strings!
                         ListElement { text: "Τριχωνίδα"; value: "trichonida" }
                         ListElement { text: "Ρίβιο"; value: "rivio" }
                         ListElement { text: "Οζερός"; value: "ozeros" }
                     }
                 }
 
-                // Label & ComboBox για Ψάρι
                 Text {
                     text: "ΕΙΔΟΣ ΨΑΡΙΟΥ"
                     font.pixelSize: 12
@@ -124,13 +144,11 @@ Window {
                     textRole: "text"
                     valueRole: "value"
                     model: ListModel {
-                        // ΠΡΟΣΟΧΗ: Αλλάξαμε τους μαγικούς αριθμούς σε Strings!
                         ListElement { text: "Γριβάδι"; value: "carp" }
                         ListElement { text: "Πεταλούδα"; value: "petalouda" }
                     }
                 }
 
-                // Κουμπί
                 Button {
                     text: "ΥΠΟΛΟΓΙΣΜΟΣ ΠΙΘΑΝΟΤΗΤΑΣ"
                     Layout.fillWidth: true
@@ -162,7 +180,8 @@ Window {
                 text: "↑"
                 font.pixelSize: 54
                 font.bold: true
-                color: Material.accent
+                // --- ΝΕΟ: Το χρώμα τραβάει τη μεταβλητή arrowColor ---
+                color: arrowColor
                 rotation: Backend.windDegrees + 180
                 Behavior on rotation {
                     NumberAnimation { duration: 800; easing.type: Easing.OutBack }

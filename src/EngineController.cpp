@@ -46,7 +46,7 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
     std::unique_ptr<Species> targetFish;
 
-    // ΑΛΛΑΓΗ 2: Αναζήτηση βάσει του String Key
+    // Αναζήτηση βάσει του String Key
     if (m_currentFishKey == "carp") {
         targetFish = std::make_unique<Species>(FishSpecies::Carp);
         if (weatherData.contains("Sunrise") && weatherData.contains("Sunset")) {
@@ -64,11 +64,12 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
     // 1. ΥΠΟΛΟΓΙΣΜΟΣ ΕΠΙΦΑΝΕΙΑΣ (Επιλίμνιο)
     double surfaceTemp = weatherData.contains("Temperature") ? weatherData.at("Temperature") : 0.0;
-    const double surfaceScore = targetFish->calculateScore(weatherData);
-    const double surfacePct = surfaceScore * 100.0;
+
+    // --- ΑΛΛΑΓΗ 1: Πιάνουμε όλο τον "Φάκελο" (ScoreDetails) ---
+    ScoreDetails surfaceDetails = targetFish->calculateScore(weatherData);
+    const double surfacePct = surfaceDetails.totalScore * 100.0;
 
     // 2. ΡΥΘΜΙΣΕΙΣ ΛΙΜΝΗΣ & ΥΠΟΛΟΓΙΣΜΟΣ ΘΕΡΜΟΚΛΙΝΑΣ
-    // ΑΛΛΑΓΗ 3: Παίρνουμε το βάθος απευθείας από το m_currentLake. Τέλος τα if-else!
     double maxDepth = m_currentLake.maxDepth;
 
     int currentMonth = QDate::currentDate().month();
@@ -92,7 +93,8 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
             auto testWeatherData = weatherData;
             testWeatherData["Temperature"] = tempAtDepth;
 
-            double testScore = targetFish->calculateScore(testWeatherData);
+            // --- ΑΛΛΑΓΗ 2: Παίρνουμε κατευθείαν το totalScore για τη σύγκριση ---
+            double testScore = targetFish->calculateScore(testWeatherData).totalScore;
 
             // Κρατάμε το μέγιστο (Maximization)
             if (testScore > maxScoreFound) {
@@ -156,6 +158,13 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
     // Αμυντική προσέγγιση για βροχή/πίεση
     weatherStats["rain"] = weatherData.contains("Precipitation") ? weatherData.at("Precipitation") : 0.0;
     weatherStats["pressure"] = weatherData.contains("Pressure") ? weatherData.at("Pressure") : 0.0;
+
+    // --- ΑΛΛΑΓΗ 3: Προσθήκη των επιμέρους scores (Diagnostic Reporting) για το UI ---
+    const auto& scores = surfaceDetails.parameterScores;
+    weatherStats["scoreTemp"] = scores.count("Temperature") ? scores.at("Temperature") : 0.0;
+    weatherStats["scorePressure"] = scores.count("Pressure") ? scores.at("Pressure") : 0.0;
+    weatherStats["scoreWindDir"] = scores.count("WindDirection") ? scores.at("WindDirection") : 0.0;
+    weatherStats["scoreRain"] = scores.count("Precipitation") ? scores.at("Precipitation") : 0.0;
 
     // ΣΤΕΛΝΟΥΜΕ ΤΟ QVariantMap ΣΤΟ UI!
     emit calculationFinished(surfacePct, bestThermoPct, bestDepth, weatherStats);

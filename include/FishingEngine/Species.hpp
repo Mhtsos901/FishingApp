@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-// ΝΕΟ: Ορίζουμε τους τύπους συμπεριφοράς των δεδομένων
+// Ορίζουμε τους τύπους συμπεριφοράς των δεδομένων
 enum class RuleType {
     Continuous,  // Γραμμικά δεδομένα (π.χ. Θερμοκρασία, Πίεση)
     Cyclical,    // Κυκλικά δεδομένα (π.χ. Ώρα της ημέρας 0-24)
@@ -32,11 +32,17 @@ enum class FishSpecies {
     Unknown
 };
 
+// --- ΝΕΟ: Ο "Φάκελος" Αναφοράς (Diagnostic Report) ---
+struct ScoreDetails {
+    double totalScore = 0.0;
+    std::unordered_map<std::string, double> parameterScores; // Κρατάει το επιμέρους σκορ για κάθε παράμετρο
+};
+
 class Species {
 private:
     std::string name;
 
-    // ΕΔΩ Η ΔΙΟΡΘΩΣΗ: Το map πλέον χρησιμοποιεί το νέο struct 'Rule'
+    // Το map χρησιμοποιεί το struct 'Rule'
     std::unordered_map<std::string, Rule> rules;
 
     FishSpecies GetSpeciesEnum(const std::string& nameStr);
@@ -44,7 +50,8 @@ private:
 public:
     Species(FishSpecies species);
 
-    double calculateScore(const std::unordered_map<std::string, double>& currentWeather) const;
+    // --- ΑΛΛΑΓΗ: Επιστρέφει το νέο struct ScoreDetails αντί για σκέτο double ---
+    ScoreDetails calculateScore(const std::unordered_map<std::string, double>& currentWeather) const;
 
     void updateRuleIdealValues(const std::string& parameterName, const std::vector<double>& newIdealValues);
 };
