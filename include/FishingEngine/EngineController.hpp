@@ -6,6 +6,13 @@
 #include "WeatherService.hpp"
 #include "Species.hpp"
 
+struct LakeData {
+    QString name;
+    double lat;
+    double lon;
+    double maxDepth;
+};
+
 class EngineController : public QObject {
     Q_OBJECT
     // --- ΝΕΟ: Αυτό επιτρέπει στο QML να διαβάζει τη μεταβλητή m_windDegrees ---
@@ -14,7 +21,7 @@ class EngineController : public QObject {
 public:
     explicit EngineController(QObject *parent = nullptr);
 
-    Q_INVOKABLE void calculateCatchProbability(int locationId, int fishId);
+    Q_INVOKABLE void calculateCatchProbability(const QString& locationKey, const QString& fishKey);
 
     double windDegrees() const { return m_windDegrees; }
 
@@ -31,7 +38,9 @@ private slots:
 
 private:
     WeatherService* m_weatherService;
-    int m_currentFishId;
-    int m_currentLocationId;
+
+    QString m_currentFishKey;
+    LakeData m_currentLake;
+
     double m_windDegrees;
 };

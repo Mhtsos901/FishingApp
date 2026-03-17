@@ -5,29 +5,37 @@
 #include <cmath>
 #include <memory>
 
-EngineController::EngineController(QObject *parent) : QObject(parent), m_currentFishId(0) {
+EngineController::EngineController(QObject *parent) : QObject(parent) {
     // Αρχικοποιούμε το Service και συνδέουμε τα Signals του με τα δικά μας Slots
     m_weatherService = new WeatherService(this);
 
     connect(m_weatherService, &WeatherService::weatherDataReady, this, &EngineController::onWeatherReady);
     connect(m_weatherService, &WeatherService::errorOccurred, this, &EngineController::onWeatherError);
+    m_windDegrees = 0.0;
 }
 
-void EngineController::calculateCatchProbability(int locationId, int fishId) {
-    m_currentFishId = fishId; // Αποθήκευση επιλογής στη μνήμη της κλάσης
-    m_currentLocationId = locationId;
+// ΑΛΛΑΓΗ 1: Δέχεται QStrings (Slugs) από το QML αντί για ints
+void EngineController::calculateCatchProbability(const QString& locationKey, const QString& fishKey) {
+    m_currentFishKey = fishKey; // Αποθήκευση επιλογής ψαριού στη μνήμη
 
-    double lat = 0.0, lon = 0.0;
-    if (locationId == 1) { lat = 38.56; lon = 21.47; } // Τριχωνίδα
-    else if (locationId == 2) { lat = 38.74; lon = 21.18; } // Ρίβιο
-    else if (locationId == 3) { lat = 38.65; lon = 21.23; } // Οζερός
-    else {
+    // --- DATA-DRIVEN DESIGN: Το "Λεξικό" των Λιμνών ---
+    static const QMap<QString, LakeData> lakes = {
+        {"trichonida", {"Τριχωνίδα", 38.56, 21.47, 58.0}},
+        {"rivio",      {"Ρίβιο", 38.74, 21.18, 40.0}},
+        {"ozeros",     {"Οζερός", 38.65, 21.23, 10.0}}
+    };
+
+    // Έλεγχος Ασφαλείας: Υπάρχει το κλειδί που μας έστειλε το QML;
+    if (!lakes.contains(locationKey)) {
         emit calculationError("Σφάλμα: Άγνωστη τοποθεσία!");
         return;
     }
 
-    // Η κλήση φεύγει στο background (Non-blocking)
-    m_weatherService->getLiveWeather(lat, lon);
+    // Αποθηκεύουμε την επιλεγμένη λίμνη στο state για να τη βρει το onWeatherReady
+    m_currentLake = lakes.value(locationKey);
+
+    // Η κλήση φεύγει στο background (Non-blocking), χρησιμοποιώντας τις συντεταγμένες του struct
+    m_weatherService->getLiveWeather(m_currentLake.lat, m_currentLake.lon);
 }
 
 void EngineController::onWeatherReady(const std::unordered_map<std::string, double>& weatherData) {
@@ -37,33 +45,34 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
     }
 
     std::unique_ptr<Species> targetFish;
-    if (m_currentFishId == 1) {
+
+    // ΑΛΛΑΓΗ 2: Αναζήτηση βάσει του String Key
+    if (m_currentFishKey == "carp") {
         targetFish = std::make_unique<Species>(FishSpecies::Carp);
         if (weatherData.contains("Sunrise") && weatherData.contains("Sunset")) {
             targetFish->updateRuleIdealValues("TimeOfDay", {weatherData.at("Sunrise"), weatherData.at("Sunset")});
         }
-    } else if (m_currentFishId == 2) {
+    } else if (m_currentFishKey == "petalouda") {
         targetFish = std::make_unique<Species>(FishSpecies::Petalouda);
         if (weatherData.contains("Sunrise") && weatherData.contains("Sunset")) {
             targetFish->updateRuleIdealValues("TimeOfDay", {weatherData.at("Sunrise"), weatherData.at("Sunset")});
         }
     } else {
-        emit calculationError("Σφάλμα: Άγνωστο ψάρι!");
+        emit calculationError("Σφάλμα: Άγνωστο είδος ψαριού!");
         return;
     }
 
     // 1. ΥΠΟΛΟΓΙΣΜΟΣ ΕΠΙΦΑΝΕΙΑΣ (Επιλίμνιο)
-    double surfaceTemp = weatherData.at("Temperature");
+    double surfaceTemp = weatherData.contains("Temperature") ? weatherData.at("Temperature") : 0.0;
     const double surfaceScore = targetFish->calculateScore(weatherData);
     const double surfacePct = surfaceScore * 100.0;
 
     // 2. ΡΥΘΜΙΣΕΙΣ ΛΙΜΝΗΣ & ΥΠΟΛΟΓΙΣΜΟΣ ΘΕΡΜΟΚΛΙΝΑΣ
-    double maxDepth = 10.0; // Προεπιλογή (Οζερός)
-    if (m_currentLocationId == 1) maxDepth = 58.0; // Τριχωνίδα
-    else if (m_currentLocationId == 2) maxDepth = 40.0; // Ρίβιο
+    // ΑΛΛΑΓΗ 3: Παίρνουμε το βάθος απευθείας από το m_currentLake. Τέλος τα if-else!
+    double maxDepth = m_currentLake.maxDepth;
 
     int currentMonth = QDate::currentDate().month();
-    double windKmh = weatherData.at("WindSpeed");
+    double windKmh = weatherData.contains("WindSpeed") ? weatherData.at("WindSpeed") : 0.0;
     double z_th = WeatherUtils::calculateThermoclineDepth(currentMonth, maxDepth, windKmh);
 
     // 3. ΑΝΑΖΗΤΗΣΗ ΙΔΑΝΙΚΟΥ ΒΑΘΟΥΣ (Linear Search Algorithm)
@@ -71,11 +80,8 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
     double bestDepth = 0.0;
     double bestTemp = surfaceTemp;
 
-    // Σαρώνουμε από τη θερμοκλίνα μέχρι τον πάτο για να βρούμε την τέλεια θερμοκρασία
     if (z_th > 0.0 && z_th < maxDepth) {
         double maxScoreFound = -1.0;
-        // Χρησιμοποιούμε std::ceil για να στρογγυλοποιήσουμε στο επόμενο ακέραιο μέτρο!
-        // Αν z_th = 9.9, το startDepth θα γίνει 10.
         int startDepth = static_cast<int>(std::ceil(z_th));
         int endDepth = static_cast<int>(maxDepth);
 
@@ -97,16 +103,18 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         }
         bestThermoPct = maxScoreFound * 100.0;
     } else {
-        // Χειμώνας ή πλήρως ανακατεμένη λίμνη
         bestThermoPct = surfacePct;
         bestDepth = 0.0;
     }
 
-    // 4. ΕΤΟΙΜΑΣΙΑ ΤΟΥ UI & ΣΗΜΑΤΩΝ (Signals)
-    m_windDegrees = weatherData.at("WindDirection");
+    // 4. ΕΤΟΙΜΑΣΙΑ ΤΟΥ UI & ΣΗΜΑΤΩΝ (Model to View)
+    if (weatherData.contains("WindDirection")) {
+        m_windDegrees = weatherData.at("WindDirection");
+    } else {
+        m_windDegrees = 0.0;
+    }
     emit windDegreesChanged();
 
-    // Helper function για την Πυξίδα
     auto getCompassDirection = [](double degrees) -> QString {
         if (degrees >= 337.5 || degrees < 22.5) return "Βόρειος (N)";
         if (degrees >= 22.5 && degrees < 67.5) return "Βορειοανατολικός (NE)";
@@ -119,7 +127,6 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         return "Άγνωστη";
     };
 
-    // Helper function (Lambda) για μετατροπή km/h σε Μποφόρ
     auto getBeaufort = [](double kmh) -> int {
         if (kmh < 2.0) return 0;
         if (kmh < 6.0) return 1;
@@ -141,16 +148,16 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
     weatherStats["surfaceTemp"] = surfaceTemp;
     weatherStats["bestDepth"] = bestDepth;
     weatherStats["bestTemp"] = bestTemp;
-    weatherStats["airTemp"] = weatherData.at("AirTemperature");
+    weatherStats["airTemp"] = weatherData.contains("AirTemperature") ? weatherData.at("AirTemperature") : 0.0;
     weatherStats["beaufort"] = getBeaufort(windKmh);
     weatherStats["windKmh"] = windKmh;
     weatherStats["compassDir"] = getCompassDirection(m_windDegrees);
 
-    // Αμυντική προσέγγιση για βροχή/πίεση (σε περίπτωση που δεν ήρθαν από το API)
+    // Αμυντική προσέγγιση για βροχή/πίεση
     weatherStats["rain"] = weatherData.contains("Precipitation") ? weatherData.at("Precipitation") : 0.0;
     weatherStats["pressure"] = weatherData.contains("Pressure") ? weatherData.at("Pressure") : 0.0;
 
-    // ΣΤΕΛΝΟΥΜΕ ΜΟΝΟ ΑΡΙΘΜΟΥΣ ΚΑΙ ΔΕΔΟΜΕΝΑ ΣΤΟ UI!
+    // ΣΤΕΛΝΟΥΜΕ ΤΟ QVariantMap ΣΤΟ UI!
     emit calculationFinished(surfacePct, bestThermoPct, bestDepth, weatherStats);
 }
 

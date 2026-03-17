@@ -4,33 +4,31 @@ import QtQuick.Layouts
 import QtQuick.Controls.Material
 
 Window {
-    width: 500
-    height: 600
+    width: 450
+    height: 750
     visible: true
     title: "Fishing Engine v2.0"
 
+    // Απαλό γκρι background για να ξεχωρίζει η λευκή κάρτα
+    color: "#F4F6F8"
+
     Material.theme: Material.Light
     Material.accent: Material.LightBlue
+    Material.primary: Material.Blue
 
     // 1. ΤΟ "ΑΥΤΙ" ΤΟΥ UI
     Connections {
         target: Backend
-
-        // ΝΕΟ: Η παράμετρος λέγεται πλέον 'stats' και είναι JavaScript Object!
         function onCalculationFinished(surfacePct, thermoPct, thermoDepth, stats) {
             let resultString = "Επιφάνεια: <font color='#2196F3'>" + surfacePct.toFixed(1) + "%</font><br>"
 
             if (thermoDepth > 0) {
-                // Αν βρήκαμε θερμοκλίνα, δείχνουμε το ιδανικό βάθος
                 resultString += "Στα " + thermoDepth.toFixed(0) + " μέτρα: <font color='#4CAF50'><b>" + thermoPct.toFixed(1) + "%</b></font>"
             } else {
                 resultString += "<font color='#757575'>Η λίμνη είναι πλήρως ανακατεμένη.</font>"
             }
 
-            // --- ΕΔΩ ΤΟ QML ΧΤΙΖΕΙ ΤΟ ΓΡΑΦΙΚΟ ΚΟΜΜΑΤΙ (View Logic) ---
             let detailsHtml = "";
-
-            // Έλεγχος για το αν υπάρχει θερμοκλίνα
             if (stats.thermoclineDepth > 0.0) {
                 detailsHtml += `Βάθος Επιλιμνίου: 0 έως ${stats.thermoclineDepth.toFixed(1)} m<br>`;
                 detailsHtml += `Θερμ. Νερού (Επιφάνεια): ${stats.surfaceTemp.toFixed(1)} °C<br>`;
@@ -40,106 +38,142 @@ Window {
                 detailsHtml += `Θερμ. Νερού (Επιφάνεια): ${stats.surfaceTemp.toFixed(1)} °C<br>`;
             }
 
-            // Προσθήκη των κοινών στατιστικών (αέρα, βροχής, πίεσης)
             detailsHtml += `Θερμ. Αέρα: ${stats.airTemp.toFixed(1)} °C<br>`;
             detailsHtml += `Αέρας: ${stats.beaufort} Μποφόρ - ${stats.windKmh.toFixed(1)} km/h [${stats.compassDir}]<br>`;
             detailsHtml += `Βροχή: ${stats.rain.toFixed(1)} mm<br>`;
             detailsHtml += `Βαρόμετρο: ${stats.pressure.toFixed(1)} hPa`;
 
-            // Ενημέρωση του UI
             resultText.textFormat = Text.RichText
             resultText.text = resultString + "<br><br><font size='3' color='#555555'>" + detailsHtml + "</font>"
         }
 
         function onCalculationError(errorMessage) {
-            resultText.text = "Σφάλμα:\n" + errorMessage
+            resultText.text = "<font color='#D32F2F'><b>Σφάλμα:</b><br>" + errorMessage + "</font>"
         }
     }
 
     // 2. ΣΧΕΔΙΑΣΜΟΣ ΟΘΟΝΗΣ
     ColumnLayout {
-        anchors.centerIn: parent
+        anchors.fill: parent
+        anchors.margins: 30
         spacing: 20
-        width: 320
 
-        Text {
-            text: "Ρυθμίσεις Ψαρέματος"
-            font.pixelSize: 22
-            font.bold: true
+        // --- Header / Τίτλος ---
+        ColumnLayout {
             Layout.alignment: Qt.AlignHCenter
-            Layout.bottomMargin: 10
-        }
+            spacing: 5
 
-        ComboBox {
-            id: lakeCombo
-            Layout.fillWidth: true
-            font.pixelSize: 16
-            textRole: "text"
-            valueRole: "value"
-            model: ListModel {
-                ListElement { text: "Τριχωνίδα"; value: 1 }
-                ListElement { text: "Ρίβιο"; value: 2 }
-                ListElement { text: "Οζερός"; value: 3 }
+            Text {
+                text: "🐟 Fishing Engine"
+                font.pixelSize: 28
+                font.bold: true
+                color: "#1976D2"
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Text {
+                text: "v2.0 Simulation Model"
+                font.pixelSize: 14
+                color: "#757575"
+                Layout.alignment: Qt.AlignHCenter
             }
         }
 
-        ComboBox {
-            id: fishCombo
+        // --- Κάρτα Ρυθμίσεων (Material Card) ---
+        Pane {
             Layout.fillWidth: true
-            font.pixelSize: 16
-            textRole: "text"
-            valueRole: "value"
-            model: ListModel {
-                ListElement { text: "Γριβάδι"; value: 1 }
-                ListElement { text: "Πεταλούδα"; value: 2 }
-            }
-        }
+            Material.elevation: 4 // Προσθέτει τη σκιά της κάρτας!
+            padding: 25
 
-        Button {
-            text: "Υπολογισμός Πιθανότητας"
-            Layout.fillWidth: true
-            Layout.topMargin: 15
-            font.pixelSize: 18
-            Material.background: Material.accent
-            Material.foreground: "white"
+            ColumnLayout {
+                width: parent.width
+                spacing: 15
 
-            onClicked: {
-                resultText.text = "Γίνεται λήψη καιρού..."
-                Backend.calculateCatchProbability(lakeCombo.currentValue, fishCombo.currentValue)
+                // Label & ComboBox για Λίμνη
+                Text {
+                    text: "ΤΟΠΟΘΕΣΙΑ"
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: "#757575"
+                }
+                ComboBox {
+                    id: lakeCombo
+                    Layout.fillWidth: true
+                    font.pixelSize: 16
+                    textRole: "text"
+                    valueRole: "value"
+                    model: ListModel {
+                        // ΠΡΟΣΟΧΗ: Αλλάξαμε τους μαγικούς αριθμούς σε Strings!
+                        ListElement { text: "Τριχωνίδα"; value: "trichonida" }
+                        ListElement { text: "Ρίβιο"; value: "rivio" }
+                        ListElement { text: "Οζερός"; value: "ozeros" }
+                    }
+                }
+
+                // Label & ComboBox για Ψάρι
+                Text {
+                    text: "ΕΙΔΟΣ ΨΑΡΙΟΥ"
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: "#757575"
+                    Layout.topMargin: 10
+                }
+                ComboBox {
+                    id: fishCombo
+                    Layout.fillWidth: true
+                    font.pixelSize: 16
+                    textRole: "text"
+                    valueRole: "value"
+                    model: ListModel {
+                        // ΠΡΟΣΟΧΗ: Αλλάξαμε τους μαγικούς αριθμούς σε Strings!
+                        ListElement { text: "Γριβάδι"; value: "carp" }
+                        ListElement { text: "Πεταλούδα"; value: "petalouda" }
+                    }
+                }
+
+                // Κουμπί
+                Button {
+                    text: "ΥΠΟΛΟΓΙΣΜΟΣ ΠΙΘΑΝΟΤΗΤΑΣ"
+                    Layout.fillWidth: true
+                    Layout.topMargin: 20
+                    Layout.preferredHeight: 45
+                    font.pixelSize: 15
+                    font.bold: true
+                    Material.background: Material.accent
+                    Material.foreground: "white"
+                    Material.elevation: 2
+
+                    onClicked: {
+                        resultText.text = "Γίνεται λήψη καιρού..."
+                        Backend.calculateCatchProbability(lakeCombo.currentValue, fishCombo.currentValue)
+                    }
+                }
             }
         }
 
         // --- ΠΛΑΙΣΙΟ ΑΠΟΤΕΛΕΣΜΑΤΟΣ ΜΕ ΒΕΛΟΣ ---
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 25
+            Layout.topMargin: 15
+            Layout.fillHeight: true
             spacing: 20
-            // Το βέλος και το κείμενο εμφανίζονται μόνο όταν έχουμε αποτέλεσμα
             visible: resultText.text !== "Αναμονή επιλογής..." && resultText.text !== "Γίνεται λήψη καιρού..."
 
-            // Το Βέλος Κατεύθυνσης Αέρα
             Text {
                 text: "↑"
                 font.pixelSize: 54
                 font.bold: true
                 color: Material.accent
-
-                // Σύνδεση με τη C++ Property: Backend.windDegrees
-                // Προσθέτουμε 180 για να δείχνει ΠΟΥ πάει ο αέρας
                 rotation: Backend.windDegrees + 180
-
-                // Ομαλή κίνηση περιστροφής (Animation)
                 Behavior on rotation {
                     NumberAnimation { duration: 800; easing.type: Easing.OutBack }
                 }
             }
 
-            // Το κείμενο με τις λεπτομέρειες
             Text {
                 id: resultText
                 text: "Αναμονή επιλογής..."
                 font.pixelSize: 15
-                lineHeight: 1.2
+                lineHeight: 1.3
                 horizontalAlignment: Text.AlignLeft
                 Layout.fillWidth: true
             }
