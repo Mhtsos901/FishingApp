@@ -1,7 +1,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQuickStyle> // <--- ΝΕΟ: Η βιβλιοθήκη για τα στυλ
+#include <QQuickStyle>
 #include "include/FishingEngine/EngineController.hpp"
 
 int main(int argc, char *argv[]) {

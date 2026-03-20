@@ -62,17 +62,61 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         return;
     }
 
-    // 1. ΥΠΟΛΟΓΙΣΜΟΣ ΕΠΙΦΑΝΕΙΑΣ (Επιλίμνιο)
-    double surfaceTemp = weatherData.contains("Temperature") ? weatherData.at("Temperature") : 0.0;
+    // --- ΒΗΜΑ 1: Ημερήσια Θερμοκρασία Αέρα (Daily Air Average) ---
+    double currentTemp = weatherData.contains("Temperature") ? weatherData.at("Temperature") : 0.0;
+    double tempMax = weatherData.contains("TempMax") ? weatherData.at("TempMax") : currentTemp;
+    double tempMin = weatherData.contains("TempMin") ? weatherData.at("TempMin") : currentTemp;
 
-    // --- ΑΛΛΑΓΗ 1: Πιάνουμε όλο τον "Φάκελο" (ScoreDetails) ---
-    ScoreDetails surfaceDetails = targetFish->calculateScore(weatherData);
-    const double surfacePct = surfaceDetails.totalScore * 100.0;
+    double dailyAirTemp = (tempMax + tempMin) / 2.0;
+
+    // --- ΝΕΟ: ΥΠΟΛΟΓΙΣΜΟΣ ΠΡΑΓΜΑΤΙΚΟΥ ΝΕΡΟΥ (Weighted Blending 50/50) ---
+    int currentMonth = QDate::currentDate().month();
+
+    // Ιστορικοί μέσοι όροι νερού (Ιαν - Δεκ) για λίμνες (Base Temperature)
+    static const std::vector<double> baseMonthlyWaterTemp = {
+        9.0, 10.0, 13.0, 16.0, 21.0, 25.0, 28.0, 28.5, 25.0, 21.0, 16.0, 11.0
+    };
+
+    int monthIndex = std::clamp(currentMonth - 1, 0, 11);
+    double monthlyWaterTemp = baseMonthlyWaterTemp[monthIndex];
+
+    // Μίξη 50% Μήνας / 50% Σημερινός Αέρας
+    double monthWeight = 0.50;
+    double dailyWeight = 1.0 - monthWeight; // Το υπόλοιπο 50%
+
+    double finalWaterTemp = (monthlyWaterTemp * monthWeight) + (dailyAirTemp * dailyWeight);
+
+    // Το dailyTemp (που χρησιμοποιεί όλο το σύστημα κάτω) πλέον είναι η ΜΙΚΤΗ θερμοκρασία!
+    double dailyTemp = finalWaterTemp;
+
+    // --- ΒΗΜΑ 2: Πολλαπλασιαστής Φωτός (Daylight Multiplier) ---
+    double sunrise = weatherData.contains("Sunrise") ? weatherData.at("Sunrise") : 6.0;
+    double sunset = weatherData.contains("Sunset") ? weatherData.at("Sunset") : 18.0;
+
+    double daylightHours = sunset - sunrise;
+    if (daylightHours < 0.0) daylightHours += 24.0; // Ασφάλεια για wrap-around τα μεσάνυχτα
+
+    // 12 ώρες μέρα = 1.0 (Ουδέτερο). Κάθε έξτρα ώρα δίνει +5% bonus, κάθε μείον ώρα δίνει -5% penalty.
+    double daylightModifier = 1.0 + ((daylightHours - 12.0) * 0.05);
+    // Το κρατάμε αυστηρά μεταξύ 0.8x (Βαρύς Χειμώνας) και 1.2x (Κατακαλόκαιρο)
+    daylightModifier = std::clamp(daylightModifier, 0.8, 1.2);
+
+    // Φτιάχνουμε ένα αντίγραφο των δεδομένων για να "ταΐσουμε" το ψάρι τη μέση ημερήσια εικόνα
+    auto dailyWeatherData = weatherData;
+    dailyWeatherData["Temperature"] = dailyTemp;
+
+    // 1. ΥΠΟΛΟΓΙΣΜΟΣ ΕΠΙΦΑΝΕΙΑΣ (Επιλίμνιο)
+    double surfaceTemp = dailyTemp;
+
+    ScoreDetails surfaceDetails = targetFish->calculateScore(dailyWeatherData);
+
+    // Εφαρμόζουμε τον Πολλαπλασιαστή και σιγουρεύουμε ότι δεν περνάει το 100% (1.0)
+    double finalSurfaceScore = std::clamp(surfaceDetails.totalScore * daylightModifier, 0.0, 1.0);
+    const double surfacePct = finalSurfaceScore * 100.0;
 
     // 2. ΡΥΘΜΙΣΕΙΣ ΛΙΜΝΗΣ & ΥΠΟΛΟΓΙΣΜΟΣ ΘΕΡΜΟΚΛΙΝΑΣ
     double maxDepth = m_currentLake.maxDepth;
 
-    int currentMonth = QDate::currentDate().month();
     double windKmh = weatherData.contains("WindSpeed") ? weatherData.at("WindSpeed") : 0.0;
     double z_th = WeatherUtils::calculateThermoclineDepth(currentMonth, maxDepth, windKmh);
 
@@ -89,14 +133,14 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         for (int currentDepth = startDepth; currentDepth <= endDepth; ++currentDepth) {
             double tempAtDepth = WeatherUtils::calculateTempAtDepth(surfaceTemp, z_th, currentDepth);
 
-            // Φτιάχνουμε προσωρινό map δεδομένων αλλάζοντας μόνο τη θερμοκρασία
-            auto testWeatherData = weatherData;
-            testWeatherData["Temperature"] = tempAtDepth;
+            auto testWeatherData = dailyWeatherData; // Παίρνουμε το map με τα daily data
+            testWeatherData["Temperature"] = tempAtDepth; // Αλλάζουμε μόνο τη θερμοκρασία βάθους
 
-            // --- ΑΛΛΑΓΗ 2: Παίρνουμε κατευθείαν το totalScore για τη σύγκριση ---
             double testScore = targetFish->calculateScore(testWeatherData).totalScore;
 
-            // Κρατάμε το μέγιστο (Maximization)
+            // Εφαρμόζουμε τον Πολλαπλασιαστή Φωτός και στο βάθος!
+            testScore = std::clamp(testScore * daylightModifier, 0.0, 1.0);
+
             if (testScore > maxScoreFound) {
                 maxScoreFound = testScore;
                 bestDepth = currentDepth;
@@ -147,26 +191,23 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
     QVariantMap weatherStats;
     weatherStats["thermoclineDepth"] = z_th;
-    weatherStats["surfaceTemp"] = surfaceTemp;
+    weatherStats["surfaceTemp"] = surfaceTemp; // Δείχνει πλέον τη ΜΕΣΗ ΜΙΚΤΗ θερμοκρασία!
     weatherStats["bestDepth"] = bestDepth;
     weatherStats["bestTemp"] = bestTemp;
-    weatherStats["airTemp"] = weatherData.contains("AirTemperature") ? weatherData.at("AirTemperature") : 0.0;
+    weatherStats["airTemp"] = dailyAirTemp; // Έστειλα τον μέσο όρο αέρα για να φαίνεται σωστά στο UI!
     weatherStats["beaufort"] = getBeaufort(windKmh);
     weatherStats["windKmh"] = windKmh;
     weatherStats["compassDir"] = getCompassDirection(m_windDegrees);
 
-    // Αμυντική προσέγγιση για βροχή/πίεση
     weatherStats["rain"] = weatherData.contains("Precipitation") ? weatherData.at("Precipitation") : 0.0;
     weatherStats["pressure"] = weatherData.contains("Pressure") ? weatherData.at("Pressure") : 0.0;
 
-    // --- ΑΛΛΑΓΗ 3: Προσθήκη των επιμέρους scores (Diagnostic Reporting) για το UI ---
     const auto& scores = surfaceDetails.parameterScores;
     weatherStats["scoreTemp"] = scores.count("Temperature") ? scores.at("Temperature") : 0.0;
     weatherStats["scorePressure"] = scores.count("Pressure") ? scores.at("Pressure") : 0.0;
     weatherStats["scoreWindDir"] = scores.count("WindDirection") ? scores.at("WindDirection") : 0.0;
     weatherStats["scoreRain"] = scores.count("Precipitation") ? scores.at("Precipitation") : 0.0;
 
-    // ΣΤΕΛΝΟΥΜΕ ΤΟ QVariantMap ΣΤΟ UI!
     emit calculationFinished(surfacePct, bestThermoPct, bestDepth, weatherStats);
 }
 
