@@ -102,18 +102,29 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
     double dailyAirTemp = (tempMax + tempMin) / 2.0;
 
-    // --- ΝΕΟ: ΥΠΟΛΟΓΙΣΜΟΣ ΠΡΑΓΜΑΤΙΚΟΥ ΝΕΡΟΥ (Weighted Blending 50/50) ---
+    // --- ΝΕΟ: ΥΠΟΛΟΓΙΣΜΟΣ ΠΡΑΓΜΑΤΙΚΟΥ ΝΕΡΟΥ (Weighted Blending 80/20) ---
     int currentMonth = QDate::currentDate().month();
 
-    // Ιστορικοί μέσοι όροι νερού (Ιαν - Δεκ) για λίμνες (Base Temperature)
-    int monthIndex = std::clamp(currentMonth - 1, 0, 11);
-    double monthlyWaterTemp = m_currentLake.monthlyBaseTemps[monthIndex];
+    // --- ΝΕΟ: ΥΠΟΛΟΓΙΣΜΟΣ ΠΡΑΓΜΑΤΙΚΟΥ ΝΕΡΟΥ ΜΕ ΓΡΑΜΜΙΚΗ ΠΑΡΕΜΒΟΛΗ (LERP) ---
+    QDate today = QDate::currentDate();
+    int currentMonthIdx = today.month() - 1; // 0 έως 11
+    int nextMonthIdx = (currentMonthIdx + 1) % 12; // Το % 12 "κυκλώνει" τον Δεκέμβριο(11) πίσω στον Ιανουάριο(0)
 
-    // Μίξη 50% Μήνας / 50% Σημερινός Αέρας
+    double currentMonthTemp = m_currentLake.monthlyBaseTemps[currentMonthIdx];
+    double nextMonthTemp = m_currentLake.monthlyBaseTemps[nextMonthIdx];
+
+    // Πού βρισκόμαστε μέσα στον μήνα; (0.0 = αρχή του μήνα, 1.0 = τέλος του μήνα)
+    // Αυτό μας δίνει ομαλή ΕΒΔΟΜΑΔΙΑΙΑ και ΚΑΘΗΜΕΡΙΝΗ αλλαγή!
+    double progress = static_cast<double>(today.day()) / today.daysInMonth();
+
+    // Μαθηματικός τύπος LERP: blended = (1.0 - t) * A + t * B
+    double interpolatedWaterTemp = (1.0 - progress) * currentMonthTemp + (progress * nextMonthTemp);
+
+    // Μίξη με τον Σημερινό Αέρα (80% Ιστορικό LERP / 20% Αέρας)
     double monthWeight = 0.80;
-    double dailyWeight = 1.0 - monthWeight; // Το υπόλοιπο 50%
+    double dailyWeight = 1.0 - monthWeight;
 
-    double finalWaterTemp = (monthlyWaterTemp * monthWeight) + (dailyAirTemp * dailyWeight);
+    double finalWaterTemp = (interpolatedWaterTemp * monthWeight) + (dailyAirTemp * dailyWeight);
 
     // Το dailyTemp (που χρησιμοποιεί όλο το σύστημα κάτω) πλέον είναι η ΜΙΚΤΗ θερμοκρασία!
     double dailyTemp = finalWaterTemp;
