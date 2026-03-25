@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QVariantMap>
+#include <QtQml/qqml.h>
 #include "WeatherService.hpp"
 #include "Species.hpp"
 
@@ -11,10 +12,13 @@ struct LakeData {
     double lat;
     double lon;
     double maxDepth;
+    std::vector<double> monthlyBaseTemps;
 };
 
 class EngineController : public QObject {
     Q_OBJECT
+
+    QML_ELEMENT
     // --- ΝΕΟ: Αυτό επιτρέπει στο QML να διαβάζει τη μεταβλητή m_windDegrees ---
     Q_PROPERTY(double windDegrees READ windDegrees NOTIFY windDegreesChanged)
 

@@ -4,7 +4,7 @@ project(FishingApp VERSION 2.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Η ΛΥΣΗ: Ενεργοποιούμε τους αυτόματους μεταφραστές του Qt (MOC, RCC, UIC) ---
+# --- Ενεργοποιούμε τους αυτόματους μεταφραστές του Qt (MOC, RCC, UIC) ---
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -19,29 +19,40 @@ qt_policy(SET QTP0001 NEW)
 
 # ---------------------------------------------------------------------------
 
+# 1. THE EXECUTABLE: Το εκτελέσιμο πλέον περιέχει μόνο το entry point.
 qt_add_executable(FishingApp
-        # --- Source Files (.cpp) ---
         main.cpp
+)
+
+# 2. THE QML MODULE: Εδώ "πακετάρουμε" όλη την επιχειρησιακή λογική (Domain Logic) και το UI.
+qt_add_qml_module(FishingApp
+        URI FishingEngine
+        VERSION 1.0
+
+        QML_FILES
+        Main.qml
+
+        # --- Δηλώνουμε τα C++ αρχεία για να μπορεί να τα διαβάσει το εργαλείο QML Registration ---
+        SOURCES
         src/Species.cpp
         src/WeatherUtils.cpp
         src/WeatherService.cpp
         src/EngineController.cpp
 
-        # --- Header Files (.hpp) ---
-        # ΠΡΟΣΘΗΚΗ: Βάζουμε τα headers για να τα δει ο μεταφραστής (MOC)
         include/FishingEngine/Species.hpp
         include/FishingEngine/WeatherUtils.hpp
         include/FishingEngine/WeatherService.hpp
         include/FishingEngine/EngineController.hpp
 )
 
-qt_add_qml_module(FishingApp
-        URI FishingEngine
-        VERSION 1.0
-        QML_FILES
-        Main.qml
+# 3. INCLUDE DIRECTORIES: Λέμε στον compiler πού να ψάχνει για τα Header Files.
+# Αυτό είναι απαραίτητο για να μη "σκάει" το qmltyperegistrations.cpp!
+target_include_directories(FishingApp PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/FishingEngine
 )
 
+# 4. LINKING: Συνδέουμε τις επίσημες βιβλιοθήκες του Qt.
 target_link_libraries(FishingApp PRIVATE
         Qt6::Core
         Qt6::Network

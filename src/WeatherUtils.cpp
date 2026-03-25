@@ -65,6 +65,11 @@ namespace WeatherUtils {
     double calculateTempAtDepth(double surfaceTemp, double z_th, double targetDepth) {
         // 1. Βρισκόμαστε ΠΑΝΩ από τη θερμοκλίνα (Επιλίμνιο)
         // Η θερμοκρασία πέφτει ελάχιστα (0.2°C / μέτρο)
+
+        if (z_th <= 0.0) {
+            return surfaceTemp;
+        }
+
         if (targetDepth <= z_th) {
             return surfaceTemp - (0.2 * targetDepth);
         }
@@ -77,10 +82,6 @@ namespace WeatherUtils {
         double finalTemp = tempAtZth - (1.5 * (targetDepth - z_th));
 
         // Ασφάλεια: Το νερό στον πάτο μιας λίμνης δεν πέφτει ποτέ κάτω από τους 4°C
-        if (finalTemp < 4.0) {
-            return 4.0;
-        }
-
-        return finalTemp;
+        return std::max(finalTemp, 4.0);
     }
 }

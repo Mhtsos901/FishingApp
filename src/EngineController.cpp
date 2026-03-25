@@ -20,10 +20,43 @@ void EngineController::calculateCatchProbability(const QString& locationKey, con
 
     // --- DATA-DRIVEN DESIGN: Το "Λεξικό" των Λιμνών ---
     static const QMap<QString, LakeData> lakes = {
-        {"trichonida", {"Τριχωνίδα", 38.56, 21.47, 58.0}},
-        {"rivio",      {"Ρίβιο", 38.74, 21.18, 40.0}},
-        {"ozeros",     {"Οζερός", 38.65, 21.23, 10.0}}
+        {"trichonida_west", {
+            .name = "Τριχωνίδα (Δυτικά)",
+            .lat = 38.55,
+            .lon = 21.46,
+            .maxDepth = 45.0,
+            .monthlyBaseTemps = {11.0, 11.5, 13.0, 15.5, 20.0, 24.5, 27.0, 28.0, 25.5, 22.0, 18.0, 13.5}
+        }},
+    {"trichonida_east", {
+            .name = "Τριχωνίδα (Ανατολικά)",
+            .lat = 38.52,
+            .lon = 21.63,
+            .maxDepth = 55.0,
+            .monthlyBaseTemps = {11.0, 11.5, 13.0, 15.5, 20.0, 24.5, 27.0, 28.0, 25.5, 22.0, 18.0, 13.5}
+        }},
+    {"rivio", {
+            .name = "Ρίβιο",
+            .lat = 38.74,
+            .lon = 21.18,
+            .maxDepth = 40.0,
+            .monthlyBaseTemps = {10.0, 10.5, 12.5, 16.0, 21.0, 25.0, 28.0, 28.5, 25.0, 21.0, 16.0, 12.0}
+        }},
+    {"ozeros", {
+            .name = "Οζερός",
+            .lat = 38.65,
+            .lon = 21.23,
+            .maxDepth = 10.0,
+            .monthlyBaseTemps = {8.0, 9.0, 13.0, 17.5, 23.0, 27.0, 29.5, 30.0, 26.0, 20.0, 14.0, 9.5}
+        }},
+{"voulkaria", {
+        .name = "Βουλκαρία",
+        .lat = 38.86,
+        .lon = 20.83,
+        .maxDepth = 2.9,
+        .monthlyBaseTemps = {8.0, 9.5, 13.5, 18.0, 24.0, 28.0, 30.0, 30.5, 26.0, 20.5, 14.5, 9.5}
+}}
     };
+
 
     // Έλεγχος Ασφαλείας: Υπάρχει το κλειδί που μας έστειλε το QML;
     if (!lakes.contains(locationKey)) {
@@ -73,15 +106,11 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
     int currentMonth = QDate::currentDate().month();
 
     // Ιστορικοί μέσοι όροι νερού (Ιαν - Δεκ) για λίμνες (Base Temperature)
-    static const std::vector<double> baseMonthlyWaterTemp = {
-        9.0, 10.0, 13.0, 16.0, 21.0, 25.0, 28.0, 28.5, 25.0, 21.0, 16.0, 11.0
-    };
-
     int monthIndex = std::clamp(currentMonth - 1, 0, 11);
-    double monthlyWaterTemp = baseMonthlyWaterTemp[monthIndex];
+    double monthlyWaterTemp = m_currentLake.monthlyBaseTemps[monthIndex];
 
     // Μίξη 50% Μήνας / 50% Σημερινός Αέρας
-    double monthWeight = 0.50;
+    double monthWeight = 0.80;
     double dailyWeight = 1.0 - monthWeight; // Το υπόλοιπο 50%
 
     double finalWaterTemp = (monthlyWaterTemp * monthWeight) + (dailyAirTemp * dailyWeight);
@@ -213,4 +242,4 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
 void EngineController::onWeatherError(const std::string& errorMsg) {
     emit calculationError(QString::fromStdString(errorMsg));
-}
+};

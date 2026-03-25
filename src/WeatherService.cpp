@@ -39,7 +39,8 @@ void WeatherService::onNetworkReply(QNetworkReply* reply) {
 
     // 2. Ασφαλής αποκωδικοποίηση JSON (Safe Parsing)
     QJsonParseError parseError;
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(reply->readAll(), &parseError);
+    QByteArray responseData = reply->readAll();
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData, &parseError);
 
     // Ελέγχουμε αν το κείμενο ήταν όντως έγκυρο JSON
     if (parseError.error != QJsonParseError::NoError || !jsonDoc.isObject()) {
@@ -66,8 +67,11 @@ void WeatherService::onNetworkReply(QNetworkReply* reply) {
     QJsonArray sunsetArr = daily["sunset"].toArray();
     QJsonArray sunriseArr = daily["sunrise"].toArray();
 
+    // --- ΝΕΟ: Εξαγωγή του πίνακα για το Ημερήσιο Σύνολο Βροχής ---
+    QJsonArray rainSumArr = daily["precipitation_sum"].toArray();
+
     // Αν κάποιο από τα κρίσιμα arrays είναι άδειο, σταματάμε αμέσως!
-    if (tmaxArr.isEmpty() || tminArr.isEmpty() || daylightArr.isEmpty() || windDirArr.isEmpty()) {
+    if (tmaxArr.isEmpty() || tminArr.isEmpty() || daylightArr.isEmpty() || windDirArr.isEmpty() || rainSumArr.isEmpty()) {
         emit errorOccurred("API Error: Ελλιπή δεδομένα (Empty Arrays) από το Open-Meteo.");
         return;
     }
@@ -77,11 +81,13 @@ void WeatherService::onNetworkReply(QNetworkReply* reply) {
 
     weatherData["Pressure"] = current["surface_pressure"].toDouble();
     weatherData["WindSpeed"] = current["wind_speed_10m"].toDouble();
-    weatherData["Precipitation"] = current["precipitation"].toDouble();
     weatherData["AirTemperature"] = current["temperature_2m"].toDouble();
 
-    // ΝΕΟ: Πετάξαμε τη συνάρτηση windDirectionSC. Τώρα περνάμε τις ΚΑΘΑΡΕΣ μοίρες!
+    // ΑΝΕΜΟΣ: Επικρατούσα Ημερήσια (Dominant)
     weatherData["WindDirection"] = windDirArr[0].toDouble();
+
+    // ΒΡΟΧΗ: Ημερήσιο Σύνολο (Daily Sum) αντί για την τρέχουσα στιγμή
+    weatherData["Precipitation"] = rainSumArr[0].toDouble();
 
     double tmax = tmaxArr[0].toDouble();
     double tmin = tminArr[0].toDouble();
@@ -96,7 +102,7 @@ void WeatherService::onNetworkReply(QNetworkReply* reply) {
         weatherData["Sunrise"] = WeatherUtils::highTimeZone(sunriseArr[0].toString().toStdString());
     }
 
-    // ΝΕΟ: Μετονομάσαμε το "TimeZone" σε "TimeOfDay" για να ταιριάζει με τον νέο κανόνα στο Species!
+    // Μετονομάσαμε το "TimeZone" σε "TimeOfDay" για να ταιριάζει με τον νέο κανόνα στο Species!
     weatherData["TimeOfDay"] = WeatherUtils::highTimeZone(current["time"].toString().toStdString());
 
     // 6. ΕΚΠΟΜΠΗ ΣΗΜΑΤΟΣ (Όλα πήγαν τέλεια)

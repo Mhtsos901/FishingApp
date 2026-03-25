@@ -16,7 +16,7 @@ Species::Species(FishSpecies currentSpecies) {
             .idealValues = {23.0},
             .toleranceBelow = 6.0,
             .toleranceAbove = 7.0,
-            .weight = 0.35
+            .weight = 0.45
         };
 
         rules["Pressure"] = Rule{
@@ -24,7 +24,7 @@ Species::Species(FishSpecies currentSpecies) {
             .idealValues = {1011.0},
             .toleranceBelow = 12.0,
             .toleranceAbove = 6.0,
-            .weight = 0.25,
+            .weight = 0.15,
         };
 
         rules["WindDirection"] = Rule{
@@ -60,25 +60,6 @@ Species::Species(FishSpecies currentSpecies) {
 
 
     }
-
-    /*if (currentSpecies == FishSpecies::Carp) {
-        rules["Temperature"] = {{20.0}, 5.0, 0.35};
-        rules["Pressure"] = {{1005.0}, 13.0, 0.25};
-        rules["WindDirection"] = {{100.0}, 40.0, 0.15};
-        rules["TimeZone"] = {{0.0, 0.0}, 6.0, 0.15};
-        rules["WindSpeed"] = {{9.0}, 12.0, 0.05};
-        rules["Precipitation"] = {{2.0}, 4.0, 0.05};
-
-    }
-    else if (currentSpecies == FishSpecies::Petalouda) {
-        rules["Temperature"] = {{21.5}, 8.5, 0.35};
-        rules["Pressure"] = {{1013.0}, 10.0, 0.20};
-        rules["WindDirection"] = {{100.0}, 50.0, 0.10};
-        rules["TimeZone"] = {{0.0, 0.0}, 6.0, 0.15};
-        rules["WindSpeed"] = {{10.0}, 15.0, 0.05};
-        rules["Precipitation"] = {{1.5}, 5.0, 0.05};
-    }*/
-
 }
 
 // ΠΡΟΣΟΧΗ: Αλλάξαμε τον τύπο επιστροφής από double σε ScoreDetails
@@ -88,10 +69,15 @@ ScoreDetails Species::calculateScore(const std::unordered_map<std::string, doubl
     double weightSum = 0.0;
 
     for (const auto& [parameterName, currentRule] : rules) {
+
+        weightSum += currentRule.weight;
+
         auto it = currentWeather.find(parameterName);
         // Αν δεν βρεθεί το δεδομένο στον τρέχοντα καιρό, το προσπερνάμε
-        if (it == currentWeather.end()) continue;
-
+        if (it == currentWeather.end()) {
+            result.parameterScores[parameterName] = 0.0;
+            continue;
+        }
         const double currentValue = it->second;
         double parameterScore = 0.0; // Αποθηκεύει το σκορ (0.0 - 1.0) του τρέχοντος παράγοντα
 
@@ -157,7 +143,6 @@ ScoreDetails Species::calculateScore(const std::unordered_map<std::string, doubl
 
         // --- ΤΕΛΙΚΟ ΒΗΜΑ: Σταθμισμένη Πρόσθεση (Weighted Addition) ---
         totalScore += parameterScore * currentRule.weight;
-        weightSum += currentRule.weight;
     }
 
     // Υπολογίζουμε το συνολικό σκορ (Weighted Average) και το βάζουμε στον Φάκελο

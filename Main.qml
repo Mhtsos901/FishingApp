@@ -2,200 +2,287 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Controls.Material
+import FishingEngine
 
 Window {
-    width: 450
-    height: 750
+    width: 480
+    height: 800
     visible: true
     title: "Fishing Engine v2.0"
 
-    // Απαλό γκρι background για να ξεχωρίζει η λευκή κάρτα
-    color: "#F4F6F8"
+    color: "#F8FAFC"
 
     Material.theme: Material.Light
-    Material.accent: Material.LightBlue
-    Material.primary: Material.Blue
+    Material.accent: "#0EA5E9"
+    Material.primary: "#0284C7"
 
-    // --- ΝΕΟ: Ιδιότητα για το χρώμα του βέλους (Default: Μπλε) ---
-    property string arrowColor: "#2196F3"
+    // --- State Properties ---
+    property bool isCalculated: false
 
-    // 1. ΤΟ "ΑΥΤΙ" ΤΟΥ UI
-    Connections {
-        target: Backend
-        function onCalculationFinished(surfacePct, thermoPct, thermoDepth, stats) {
+    property string mainScoreText: "--"
+    property string mainScoreColor: "#94A3B8"
+    property string arrowColor: "#94A3B8"
 
-            // --- ΝΕΟ: Helper συνάρτηση για τα Χρώματα (Visual Telemetry) ---
-            function getScoreColor(score) {
-                if (score >= 0.8) return "#4CAF50"; // Πράσινο (Τέλειο)
-                if (score >= 0.6) return "#8BC34A"; // Ανοιχτό Πράσινο (Καλό)
-                if (score >= 0.4) return "#FFC107"; // Κίτρινο (Μέτριο)
-                if (score >= 0.2) return "#FF9800"; // Πορτοκαλί (Κακό)
-                return "#F44336"; // Κόκκινο (Τραγικό)
-            }
+    property string surfaceScoreStr: "--"
+    property string depthScoreStr: "--"
+    property string depthLabelStr: "ΙΔΑΝΙΚΟ ΒΑΘΟΣ"
 
-            // Χρωματίζουμε δυναμικά το βέλος του ανέμου!
+    property string thermoclineInfo: "Αναμονή δεδομένων..."
+    property string tempText: "--"
+    property string windText: "--"
+    property string rainText: "--"
+    property string pressureText: "--"
+
+    function getScoreColor(score) {
+        if (score >= 0.8) return "#22C55E";
+        if (score >= 0.6) return "#84CC16";
+        if (score >= 0.4) return "#EAB308";
+        if (score >= 0.2) return "#F97316";
+        return "#EF4444";
+    }
+
+    EngineController {
+        id: backend
+
+        onCalculationFinished: function(surfacePct, thermoPct, thermoDepth, stats) {
+            isCalculated = true;
+
+            let bestPct = Math.max(surfacePct, thermoPct);
+            mainScoreText = bestPct.toFixed(1) + "%";
+            mainScoreColor = getScoreColor(bestPct / 100.0);
             arrowColor = getScoreColor(stats.scoreWindDir);
 
-            // Παίρνουμε τα χρώματα για τα κείμενα
-            let tempColor = getScoreColor(stats.scoreTemp);
-            let rainColor = getScoreColor(stats.scoreRain);
-            let pressColor = getScoreColor(stats.scorePressure);
-
-            let resultString = "Επιφάνεια: <font color='#2196F3'>" + surfacePct.toFixed(1) + "%</font><br>"
+            surfaceScoreStr = surfacePct.toFixed(1) + "%";
 
             if (thermoDepth > 0) {
-                resultString += "Στα " + thermoDepth.toFixed(0) + " μέτρα: <font color='#4CAF50'><b>" + thermoPct.toFixed(1) + "%</b></font>"
+                depthScoreStr = thermoPct.toFixed(1) + "%";
+                depthLabelStr = `ΒΑΘΟΣ (${stats.bestDepth.toFixed(0)}m)`;
+                thermoclineInfo = `Στρώμα Επιλιμνίου: 0 έως ${stats.thermoclineDepth.toFixed(1)}m`;
             } else {
-                resultString += "<font color='#757575'>Η λίμνη είναι πλήρως ανακατεμένη.</font>"
+                depthScoreStr = surfacePct.toFixed(1) + "%";
+                depthLabelStr = "ΟΛΑ ΤΑ ΒΑΘΗ";
+                thermoclineInfo = "Η λίμνη είναι πλήρως ανακατεμένη (Turnover)";
             }
 
-            let detailsHtml = "";
+            let waterHtml = `Νερό: <font color='${getScoreColor(stats.scoreTemp)}'><b>${stats.surfaceTemp.toFixed(1)}°C</b></font>`;
+            let airHtml = `<font size='2' color='#64748B'>Αέρας: ${stats.airTemp.toFixed(1)}°C</font>`;
+            tempText = waterHtml + "<br>" + airHtml;
 
-            // --- ΝΕΟ: Εφαρμόζουμε τα χρώματα (<font color=...>) ---
-            if (stats.thermoclineDepth > 0.0) {
-                detailsHtml += `Βάθος Επιλιμνίου: 0 έως ${stats.thermoclineDepth.toFixed(1)} m<br>`;
-                detailsHtml += `Θερμ. Νερού (Επιφάνεια): <font color='${tempColor}'><b>${stats.surfaceTemp.toFixed(1)} °C</b></font><br>`;
-                detailsHtml += `Θερμ. Νερού (${stats.bestDepth}m): <font color='${tempColor}'><b>${stats.bestTemp.toFixed(1)} °C</b></font><br>`;
-            } else {
-                detailsHtml += `Βάθος Επιλιμνίου: Η λίμνη είναι ανακατεμένη<br>`;
-                detailsHtml += `Θερμ. Νερού (Επιφάνεια): <font color='${tempColor}'><b>${stats.surfaceTemp.toFixed(1)} °C</b></font><br>`;
-            }
-
-            detailsHtml += `Θερμ. Αέρα: ${stats.airTemp.toFixed(1)} °C<br>`;
-            detailsHtml += `Αέρας: ${stats.beaufort} Μποφόρ - ${stats.windKmh.toFixed(1)} km/h [${stats.compassDir}]<br>`;
-            detailsHtml += `Βροχή: <font color='${rainColor}'><b>${stats.rain.toFixed(1)} mm</b></font><br>`;
-            detailsHtml += `Βαρόμετρο: <font color='${pressColor}'><b>${stats.pressure.toFixed(1)} hPa</b></font>`;
-
-            resultText.textFormat = Text.RichText
-            resultText.text = resultString + "<br><br><font size='3' color='#555555'>" + detailsHtml + "</font>"
+            windText = `<b>${stats.beaufort} Bft</b><br><font size='2' color='#64748B'>${stats.windKmh.toFixed(1)} km/h</font>`;
+            rainText = `<font color='${getScoreColor(stats.scoreRain)}'><b>${stats.rain.toFixed(1)} mm</b></font>`;
+            pressureText = `<font color='${getScoreColor(stats.scorePressure)}'><b>${stats.pressure.toFixed(1)} hPa</b></font>`;
         }
 
-        function onCalculationError(errorMessage) {
-            resultText.text = "<font color='#D32F2F'><b>Σφάλμα:</b><br>" + errorMessage + "</font>"
+        onCalculationError: function(errorMessage) {
+            isCalculated = false;
+            thermoclineInfo = `<font color='#EF4444'><b>Σφάλμα:</b> ${errorMessage}</font>`;
         }
     }
 
-    // 2. ΣΧΕΔΙΑΣΜΟΣ ΟΘΟΝΗΣ
-    ColumnLayout {
+    // --- MAIN LAYOUT ΜΕ SCROLLING (ΚΥΛΙΣΗ) ---
+    ScrollView {
         anchors.fill: parent
-        anchors.margins: 30
-        spacing: 20
+        contentWidth: availableWidth // Απενεργοποιεί το οριζόντιο scrolling
+        clip: true // Κρύβει το περιεχόμενο που βγαίνει εκτός οθόνης
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded // Εμφανίζει τη μπάρα μόνο αν χρειάζεται
 
-        // --- Header / Τίτλος ---
         ColumnLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 5
+            // Ορίζουμε το πλάτος λίγο μικρότερο για να αφήσουμε περιθώρια (margins) δεξιά-αριστερά
+            width: parent.width - 48
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 24
 
-            Text {
-                text: "🐟 Fishing Engine"
-                font.pixelSize: 28
-                font.bold: true
-                color: "#1976D2"
-                Layout.alignment: Qt.AlignHCenter
-            }
-            Text {
-                text: "v2.0 Simulation Model"
-                font.pixelSize: 14
-                color: "#757575"
-                Layout.alignment: Qt.AlignHCenter
-            }
-        }
+            Item { Layout.preferredHeight: 10 } // Spacer (Κενό στην κορυφή)
 
-        // --- Κάρτα Ρυθμίσεων (Material Card) ---
-        Pane {
-            Layout.fillWidth: true
-            Material.elevation: 4
-            padding: 25
-
+            // 1. HEADER
             ColumnLayout {
-                width: parent.width
-                spacing: 15
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignTop
+                spacing: 4
 
                 Text {
-                    text: "ΤΟΠΟΘΕΣΙΑ"
-                    font.pixelSize: 12
+                    text: "🐟 Fishing Engine"
+                    font.pixelSize: 32
                     font.bold: true
-                    color: "#757575"
+                    color: "#0F172A"
+                    Layout.alignment: Qt.AlignHCenter
                 }
-                ComboBox {
-                    id: lakeCombo
-                    Layout.fillWidth: true
-                    font.pixelSize: 16
-                    textRole: "text"
-                    valueRole: "value"
-                    model: ListModel {
-                        ListElement { text: "Τριχωνίδα"; value: "trichonida" }
-                        ListElement { text: "Ρίβιο"; value: "rivio" }
-                        ListElement { text: "Οζερός"; value: "ozeros" }
-                    }
-                }
-
                 Text {
-                    text: "ΕΙΔΟΣ ΨΑΡΙΟΥ"
-                    font.pixelSize: 12
-                    font.bold: true
-                    color: "#757575"
-                    Layout.topMargin: 10
-                }
-                ComboBox {
-                    id: fishCombo
-                    Layout.fillWidth: true
-                    font.pixelSize: 16
-                    textRole: "text"
-                    valueRole: "value"
-                    model: ListModel {
-                        ListElement { text: "Γριβάδι"; value: "carp" }
-                        ListElement { text: "Πεταλούδα"; value: "petalouda" }
-                    }
-                }
-
-                Button {
-                    text: "ΥΠΟΛΟΓΙΣΜΟΣ ΠΙΘΑΝΟΤΗΤΑΣ"
-                    Layout.fillWidth: true
-                    Layout.topMargin: 20
-                    Layout.preferredHeight: 45
-                    font.pixelSize: 15
-                    font.bold: true
-                    Material.background: Material.accent
-                    Material.foreground: "white"
-                    Material.elevation: 2
-
-                    onClicked: {
-                        resultText.text = "Γίνεται λήψη καιρού..."
-                        Backend.calculateCatchProbability(lakeCombo.currentValue, fishCombo.currentValue)
-                    }
-                }
-            }
-        }
-
-        // --- ΠΛΑΙΣΙΟ ΑΠΟΤΕΛΕΣΜΑΤΟΣ ΜΕ ΒΕΛΟΣ ---
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.topMargin: 15
-            Layout.fillHeight: true
-            spacing: 20
-            visible: resultText.text !== "Αναμονή επιλογής..." && resultText.text !== "Γίνεται λήψη καιρού..."
-
-            Text {
-                text: "↑"
-                font.pixelSize: 54
-                font.bold: true
-                // --- ΝΕΟ: Το χρώμα τραβάει τη μεταβλητή arrowColor ---
-                color: arrowColor
-                rotation: Backend.windDegrees + 180
-                Behavior on rotation {
-                    NumberAnimation { duration: 800; easing.type: Easing.OutBack }
+                    text: "Advanced Simulation Model"
+                    font.pixelSize: 14
+                    color: "#64748B"
+                    Layout.alignment: Qt.AlignHCenter
                 }
             }
 
-            Text {
-                id: resultText
-                text: "Αναμονή επιλογής..."
-                font.pixelSize: 15
-                lineHeight: 1.3
-                horizontalAlignment: Text.AlignLeft
+            // 2. ΚΑΡΤΑ ΕΠΙΛΟΓΩΝ
+            Pane {
                 Layout.fillWidth: true
+                Material.elevation: 2
+                padding: 24
+
+                background: Rectangle { color: "white"; radius: 16 }
+
+                ColumnLayout {
+                    width: parent.width
+                    spacing: 16
+
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 4
+                        Text { text: "ΤΟΠΟΘΕΣΙΑ"; font.pixelSize: 12; font.bold: true; color: "#94A3B8" }
+                        ComboBox {
+                            id: lakeCombo; Layout.fillWidth: true; font.pixelSize: 16
+                            textRole: "text"; valueRole: "value"
+                            model: ListModel {
+                                ListElement { text: "Τριχωνίδα (Δυτικά)"; value: "trichonida_west" }
+                                ListElement { text: "Τριχωνίδα (Ανατολικά)"; value: "trichonida_east" }
+                                ListElement { text: "Ρίβιο"; value: "rivio" }
+                                ListElement { text: "Οζερός"; value: "ozeros" }
+                                ListElement { text: "Βουλκαρία"; value: "voulkaria" }
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true; spacing: 4
+                        Text { text: "ΣΤΟΧΟΣ"; font.pixelSize: 12; font.bold: true; color: "#94A3B8" }
+                        ComboBox {
+                            id: fishCombo; Layout.fillWidth: true; font.pixelSize: 16
+                            textRole: "text"; valueRole: "value"
+                            model: ListModel {
+                                ListElement { text: "Γριβάδι (Carp)"; value: "carp" }
+                                ListElement { text: "Πεταλούδα"; value: "petalouda" }
+                            }
+                        }
+                    }
+
+                    Button {
+                        text: "ΑΝΑΛΥΣΗ ΣΥΝΘΗΚΩΝ"
+                        Layout.fillWidth: true; Layout.topMargin: 10; Layout.preferredHeight: 50
+                        font.pixelSize: 15; font.bold: true
+                        Material.background: Material.accent; Material.foreground: "white"; Material.roundedScale: Material.MediumScale
+                        onClicked: {
+                            isCalculated = false;
+                            thermoclineInfo = "Λήψη μετεωρολογικών δεδομένων...";
+                            backend.calculateCatchProbability(lakeCombo.currentValue, fishCombo.currentValue)
+                        }
+                    }
+                }
             }
+
+            // 3. ΠΕΡΙΟΧΗ ΑΠΟΤΕΛΕΣΜΑΤΩΝ
+            ColumnLayout {
+                Layout.fillWidth: true
+                // ΑΦΑΙΡΕΘΗΚΕ: το Layout.fillHeight: true για να μακραίνει δυναμικά!
+                spacing: 20
+                opacity: isCalculated ? 1.0 : 0.0
+                visible: opacity > 0
+
+                Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.InOutQuad } }
+
+                // Κεντρικό Σκορ
+                RowLayout {
+                    Layout.alignment: Qt.AlignHCenter
+                    spacing: 15
+
+                    Text {
+                        text: "↑"
+                        font.pixelSize: 58
+                        font.bold: true
+                        color: arrowColor
+                        rotation: backend.windDegrees + 180
+                        Behavior on rotation { NumberAnimation { duration: 1000; easing.type: Easing.OutElastic } }
+                    }
+
+                    Text {
+                        text: mainScoreText
+                        font.pixelSize: 58
+                        font.bold: true
+                        color: mainScoreColor
+                    }
+                }
+
+                // Premium Κάψουλα για το Split View
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 70
+                    color: "#F0F9FF"
+                    radius: 16
+                    border.color: "#E0F2FE"
+                    border.width: 1
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 10
+
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Text { text: "ΕΠΙΦΑΝΕΙΑ"; font.pixelSize: 11; font.bold: true; color: "#7DD3FC"; Layout.alignment: Qt.AlignHCenter }
+                            Text { text: surfaceScoreStr; font.pixelSize: 20; font.bold: true; color: "#0284C7"; Layout.alignment: Qt.AlignHCenter }
+                        }
+
+                        Rectangle { width: 1; height: 35; color: "#BAE6FD" }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Text { text: depthLabelStr; font.pixelSize: 11; font.bold: true; color: "#7DD3FC"; Layout.alignment: Qt.AlignHCenter }
+                            Text { text: depthScoreStr; font.pixelSize: 20; font.bold: true; color: "#0284C7"; Layout.alignment: Qt.AlignHCenter }
+                        }
+                    }
+                }
+
+                Text {
+                    text: thermoclineInfo
+                    font.pixelSize: 13
+                    color: "#64748B"
+                    Layout.alignment: Qt.AlignHCenter
+                    textFormat: Text.RichText
+                }
+
+                // Αναβαθμισμένο StatCard (με Εικονίδιο & Σκιά)
+                GridLayout {
+                    columns: 2
+                    Layout.fillWidth: true
+                    columnSpacing: 14
+                    rowSpacing: 14
+                    Layout.topMargin: 5
+
+                    component StatCard : Pane {
+                        id: cardRoot
+                        property string iconStr: ""
+                        property string titleText: ""
+                        property string valueText: ""
+
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 85
+                        Material.elevation: 1
+                        padding: 14
+
+                        background: Rectangle { color: "white"; radius: 16 }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            spacing: 12
+
+                            Text { text: cardRoot.iconStr; font.pixelSize: 26; Layout.alignment: Qt.AlignVCenter }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 4
+                                Text { text: cardRoot.titleText; font.pixelSize: 10; color: "#94A3B8"; font.bold: true; }
+                                Text { text: cardRoot.valueText; font.pixelSize: 14; color: "#334155"; textFormat: Text.RichText; }
+                            }
+                        }
+                    }
+
+                    StatCard { iconStr: "🌡️"; titleText: "ΘΕΡΜΟΚΡΑΣΙΕΣ"; valueText: tempText }
+                    StatCard { iconStr: "💨"; titleText: "ΑΝΕΜΟΣ (Live)"; valueText: windText }
+                    StatCard { iconStr: "🌧️"; titleText: "ΒΡΟΧΗ (ΗΜΕΡΗΣΙΑ)"; valueText: rainText }
+                    StatCard { iconStr: "🧭"; titleText: "ΒΑΡΟΜΕΤΡΟ"; valueText: pressureText }
+                }
+            }
+
+            Item { Layout.preferredHeight: 30 } // Spacer (Κενό στο τέλος για να μη "κολλάει" η κάρτα στον πάτο)
         }
     }
 }
