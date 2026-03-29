@@ -24,6 +24,9 @@ qt_add_executable(FishingApp
         main.cpp
 )
 
+set_target_properties(FishingApp PROPERTIES
+   QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+
 # 2. THE QML MODULE: Εδώ "πακετάρουμε" όλη την επιχειρησιακή λογική (Domain Logic) και το UI.
 qt_add_qml_module(FishingApp
         URI FishingEngine
@@ -61,3 +64,17 @@ target_link_libraries(FishingApp PRIVATE
         Qt6::Quick
         Qt6::QuickControls2
 )
+
+# --- Android OpenSSL 3 (The REAL Final Fix) ---
+if(ANDROID)
+    # 1. Συνδέουμε τον φάκελο android που δημιουργήσαμε
+    set_target_properties(FishingApp PROPERTIES
+        QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
+    )
+
+    # 2. Προσθέτουμε τις βιβλιοθήκες OpenSSL 3 στο πακέτο της εφαρμογής
+    set_property(TARGET FishingApp APPEND PROPERTY QT_ANDROID_EXTRA_LIBS
+        "C:/Android/android_openssl-master/ssl_3/arm64-v8a/libcrypto_3.so"
+        "C:/Android/android_openssl-master/ssl_3/arm64-v8a/libssl_3.so"
+    )
+endif()

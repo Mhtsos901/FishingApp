@@ -6,7 +6,6 @@
 #include <memory>
 
 EngineController::EngineController(QObject *parent) : QObject(parent) {
-    // Αρχικοποιούμε το Service και συνδέουμε τα Signals του με τα δικά μας Slots
     m_weatherService = new WeatherService(this);
 
     connect(m_weatherService, &WeatherService::weatherDataReady, this, &EngineController::onWeatherReady);
@@ -14,11 +13,11 @@ EngineController::EngineController(QObject *parent) : QObject(parent) {
     m_windDegrees = 0.0;
 }
 
-// ΑΛΛΑΓΗ 1: Δέχεται QStrings (Slugs) από το QML αντί για ints
-void EngineController::calculateCatchProbability(const QString& locationKey, const QString& fishKey) {
-    m_currentFishKey = fishKey; // Αποθήκευση επιλογής ψαριού στη μνήμη
 
-    // --- DATA-DRIVEN DESIGN: Το "Λεξικό" των Λιμνών ---
+void EngineController::calculateCatchProbability(const QString& locationKey, const QString& fishKey) {
+    m_currentFishKey = fishKey;
+
+    // lake data
     static const QMap<QString, LakeData> lakes = {
         {"trichonida_west", {
             .name = "Τριχωνίδα (Δυτικά)",
@@ -58,7 +57,7 @@ void EngineController::calculateCatchProbability(const QString& locationKey, con
     };
 
 
-    // Έλεγχος Ασφαλείας: Υπάρχει το κλειδί που μας έστειλε το QML;
+    //
     if (!lakes.contains(locationKey)) {
         emit calculationError("Σφάλμα: Άγνωστη τοποθεσία!");
         return;
