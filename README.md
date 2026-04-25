@@ -47,12 +47,6 @@ Requires Qt 6.5+ and CMake 3.16+. Open-Meteo is free and needs no API key.
 - **Common Carp** (Γριβάδι) — fully parameterised
 - **Petalouda** — in progress
 
-## What I'd add next
-
-- Moon phase parameter
-- Per-lake tolerance modifiers (shallow vs deep lakes behave differently)
-- More species
-
 ## Notes
 
 The QML frontend was AI-assisted — my focus was on the C++ engine and scoring logic.
