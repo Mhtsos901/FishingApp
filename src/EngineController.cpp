@@ -63,10 +63,9 @@ void EngineController::calculateCatchProbability(const QString& locationKey, con
         return;
     }
 
-    // Αποθηκεύουμε την επιλεγμένη λίμνη στο state για να τη βρει το onWeatherReady
+    // Saving the lakedata onWeatherReady
     m_currentLake = lakes.value(locationKey);
 
-    // Η κλήση φεύγει στο background (Non-blocking), χρησιμοποιώντας τις συντεταγμένες του struct
     m_weatherService->getLiveWeather(m_currentLake.lat, m_currentLake.lon);
 }
 
@@ -78,7 +77,7 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
     std::unique_ptr<Species> targetFish;
 
-    // Αναζήτηση βάσει του String Key
+    // searching the fish with String Key
     if (m_currentFishKey == "carp") {
         targetFish = std::make_unique<Species>(FishSpecies::Carp);
         if (weatherData.contains("Sunrise") && weatherData.contains("Sunset")) {
@@ -94,72 +93,66 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         return;
     }
 
-    // --- ΒΗΜΑ 1: Ημερήσια Θερμοκρασία Αέρα (Daily Air Average) ---
+    // Daily Air Average
     double currentTemp = weatherData.contains("Temperature") ? weatherData.at("Temperature") : 0.0;
     double tempMax = weatherData.contains("TempMax") ? weatherData.at("TempMax") : currentTemp;
     double tempMin = weatherData.contains("TempMin") ? weatherData.at("TempMin") : currentTemp;
 
     double dailyAirTemp = (tempMax + tempMin) / 2.0;
 
-    // --- ΝΕΟ: ΥΠΟΛΟΓΙΣΜΟΣ ΠΡΑΓΜΑΤΙΚΟΥ ΝΕΡΟΥ (Weighted Blending 80/20) ---
+    // Weighted Blending
     int currentMonth = QDate::currentDate().month();
 
-    // --- ΝΕΟ: ΥΠΟΛΟΓΙΣΜΟΣ ΠΡΑΓΜΑΤΙΚΟΥ ΝΕΡΟΥ ΜΕ ΓΡΑΜΜΙΚΗ ΠΑΡΕΜΒΟΛΗ (LERP) ---
+    // LERP
     QDate today = QDate::currentDate();
-    int currentMonthIdx = today.month() - 1; // 0 έως 11
-    int nextMonthIdx = (currentMonthIdx + 1) % 12; // Το % 12 "κυκλώνει" τον Δεκέμβριο(11) πίσω στον Ιανουάριο(0)
+    int currentMonthIdx = today.month() - 1; // 0--11
+    int nextMonthIdx = (currentMonthIdx + 1) % 12;
 
     double currentMonthTemp = m_currentLake.monthlyBaseTemps[currentMonthIdx];
     double nextMonthTemp = m_currentLake.monthlyBaseTemps[nextMonthIdx];
 
-    // Πού βρισκόμαστε μέσα στον μήνα; (0.0 = αρχή του μήνα, 1.0 = τέλος του μήνα)
-    // Αυτό μας δίνει ομαλή ΕΒΔΟΜΑΔΙΑΙΑ και ΚΑΘΗΜΕΡΙΝΗ αλλαγή!
     double progress = static_cast<double>(today.day()) / today.daysInMonth();
 
-    // Μαθηματικός τύπος LERP: blended = (1.0 - t) * A + t * B
+    // LERP: blended = (1.0 - t) * A + t * B
     double interpolatedWaterTemp = (1.0 - progress) * currentMonthTemp + (progress * nextMonthTemp);
 
-    // Μίξη με τον Σημερινό Αέρα (80% Ιστορικό LERP / 20% Αέρας)
+    // 80% historical LERP / 20% air
     double monthWeight = 0.80;
     double dailyWeight = 1.0 - monthWeight;
 
     double finalWaterTemp = (interpolatedWaterTemp * monthWeight) + (dailyAirTemp * dailyWeight);
 
-    // Το dailyTemp (που χρησιμοποιεί όλο το σύστημα κάτω) πλέον είναι η ΜΙΚΤΗ θερμοκρασία!
     double dailyTemp = finalWaterTemp;
 
-    // --- ΒΗΜΑ 2: Πολλαπλασιαστής Φωτός (Daylight Multiplier) ---
+    // Daylight Multiplier
     double sunrise = weatherData.contains("Sunrise") ? weatherData.at("Sunrise") : 6.0;
     double sunset = weatherData.contains("Sunset") ? weatherData.at("Sunset") : 18.0;
 
     double daylightHours = sunset - sunrise;
-    if (daylightHours < 0.0) daylightHours += 24.0; // Ασφάλεια για wrap-around τα μεσάνυχτα
+    if (daylightHours < 0.0) daylightHours += 24.0;
 
-    // 12 ώρες μέρα = 1.0 (Ουδέτερο). Κάθε έξτρα ώρα δίνει +5% bonus, κάθε μείον ώρα δίνει -5% penalty.
+    // 12 hours day = 1.0 (neutral). every extra hour gives +5% bonus and every less hour gives -5% penalty
     double daylightModifier = 1.0 + ((daylightHours - 12.0) * 0.05);
-    // Το κρατάμε αυστηρά μεταξύ 0.8x (Βαρύς Χειμώνας) και 1.2x (Κατακαλόκαιρο)
+    // 0.8x heavy winter και 1.2x middle of the summer
     daylightModifier = std::clamp(daylightModifier, 0.8, 1.2);
 
-    // Φτιάχνουμε ένα αντίγραφο των δεδομένων για να "ταΐσουμε" το ψάρι τη μέση ημερήσια εικόνα
     auto dailyWeatherData = weatherData;
     dailyWeatherData["Temperature"] = dailyTemp;
 
-    // 1. ΥΠΟΛΟΓΙΣΜΟΣ ΕΠΙΦΑΝΕΙΑΣ (Επιλίμνιο)
+    // calculate surface temp
     double surfaceTemp = dailyTemp;
 
     ScoreDetails surfaceDetails = targetFish->calculateScore(dailyWeatherData);
 
-    // Εφαρμόζουμε τον Πολλαπλασιαστή και σιγουρεύουμε ότι δεν περνάει το 100% (1.0)
     double finalSurfaceScore = std::clamp(surfaceDetails.totalScore * daylightModifier, 0.0, 1.0);
     const double surfacePct = finalSurfaceScore * 100.0;
 
-    // 2. ΡΥΘΜΙΣΕΙΣ ΛΙΜΝΗΣ & ΥΠΟΛΟΓΙΣΜΟΣ ΘΕΡΜΟΚΛΙΝΑΣ
     double maxDepth = m_currentLake.maxDepth;
 
     double windKmh = weatherData.contains("WindSpeed") ? weatherData.at("WindSpeed") : 0.0;
     double z_th = WeatherUtils::calculateThermoclineDepth(currentMonth, maxDepth, windKmh);
 
-    // 3. ΑΝΑΖΗΤΗΣΗ ΙΔΑΝΙΚΟΥ ΒΑΘΟΥΣ (Linear Search Algorithm)
+    // Linear Search Algorithm
     double bestThermoPct = 0.0;
     double bestDepth = 0.0;
     double bestTemp = surfaceTemp;
@@ -172,12 +165,11 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         for (int currentDepth = startDepth; currentDepth <= endDepth; ++currentDepth) {
             double tempAtDepth = WeatherUtils::calculateTempAtDepth(surfaceTemp, z_th, currentDepth);
 
-            auto testWeatherData = dailyWeatherData; // Παίρνουμε το map με τα daily data
-            testWeatherData["Temperature"] = tempAtDepth; // Αλλάζουμε μόνο τη θερμοκρασία βάθους
+            auto testWeatherData = dailyWeatherData;
+            testWeatherData["Temperature"] = tempAtDepth;
 
             double testScore = targetFish->calculateScore(testWeatherData).totalScore;
 
-            // Εφαρμόζουμε τον Πολλαπλασιαστή Φωτός και στο βάθος!
             testScore = std::clamp(testScore * daylightModifier, 0.0, 1.0);
 
             if (testScore > maxScoreFound) {
@@ -192,7 +184,6 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
         bestDepth = 0.0;
     }
 
-    // 4. ΕΤΟΙΜΑΣΙΑ ΤΟΥ UI & ΣΗΜΑΤΩΝ (Model to View)
     if (weatherData.contains("WindDirection")) {
         m_windDegrees = weatherData.at("WindDirection");
     } else {
@@ -230,10 +221,10 @@ void EngineController::onWeatherReady(const std::unordered_map<std::string, doub
 
     QVariantMap weatherStats;
     weatherStats["thermoclineDepth"] = z_th;
-    weatherStats["surfaceTemp"] = surfaceTemp; // Δείχνει πλέον τη ΜΕΣΗ ΜΙΚΤΗ θερμοκρασία!
+    weatherStats["surfaceTemp"] = surfaceTemp;
     weatherStats["bestDepth"] = bestDepth;
     weatherStats["bestTemp"] = bestTemp;
-    weatherStats["airTemp"] = dailyAirTemp; // Έστειλα τον μέσο όρο αέρα για να φαίνεται σωστά στο UI!
+    weatherStats["airTemp"] = dailyAirTemp;
     weatherStats["beaufort"] = getBeaufort(windKmh);
     weatherStats["windKmh"] = windKmh;
     weatherStats["compassDir"] = getCompassDirection(m_windDegrees);
